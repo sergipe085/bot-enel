@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "luga-enel-bot",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

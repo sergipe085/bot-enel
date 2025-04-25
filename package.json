@@ -1,0 +1,42 @@
+{
+  "name": "bot-enel",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx watch src/server.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "2captcha-ts": "^2.3.6",
+    "@types/express": "^5.0.1",
+    "axios": "^1.8.2",
+    "bullmq": "^5.46.0",
+    "express": "^5.1.0",
+    "imap-simple": "^5.1.0",
+    "ioredis": "^5.6.0",
+    "mailparser": "^3.7.2",
+    "nodemailer": "^6.10.1",
+    "pdf-lib": "^1.17.1",
+    "puppeteer": "^24.3.0",
+    "puppeteer-core": "^24.4.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-recaptcha": "^3.6.8",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "puppeteer-hcaptcha-solver": "^1.2.1",
+    "random-useragent": "^0.5.0",
+    "uuid": "^11.1.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/imap-simple": "^4.2.9",
+    "@types/mailparser": "^3.4.5",
+    "@types/nodemailer": "^6.4.17",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}

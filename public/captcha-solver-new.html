@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Captcha Solver</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #333;
+            margin-top: 0;
+        }
+
+        .captcha-container {
+            margin: 20px 0;
+            display: flex;
+            justify-content: center;
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+
+        #site-key-display {
+            font-family: monospace;
+            background-color: #f8f9fa;
+            padding: 5px 10px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Captcha Solver</h1>
+        <p>Please solve the captcha below to help the automated process continue.</p>
+
+        <div id="status" class="status info">Loading captcha details...</div>
+        <div id="site-key-display"></div>
+
+        <div class="captcha-container">
+            <div id="captcha-widget"></div>
+        </div>
+    </div>
+
+    <script>
+        // Get the captcha request ID from the URL
+        const urlParts = window.location.pathname.split('/');
+        const captchaId = urlParts[urlParts.length - 1];
+        let captchaDetails = null;
+
+        // Function to fetch captcha details
+        async function fetchCaptchaDetails() {
+            try {
+                const response = await fetch(`/api/captcha/status/${captchaId}`);
+
+                if (!response.ok) {
+                    throw new Error('Captcha request not found');
+                }
+
+                const data = await response.json();
+
+                if (data.status === 'solved') {
+                    document.getElementById('status').className = 'status success';
+                    document.getElementById('status').textContent = 'This captcha has already been solved. Thank you!';
+                    return null;
+                }
+
+                return data;
+            } catch (error) {
+                document.getElementById('status').className = 'status error';
+                document.getElementById('status').textContent = `Error: ${error.message}`;
+                return null;
+            }
+        }
+
+        // Function to handle captcha solution
+        function handleCaptchaSolution(token) {
+            document.getElementById('status').className = 'status info';
+            document.getElementById('status').textContent = 'Submitting solution...';
+
+            fetch(`/api/captcha/solve/${captchaId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ token })
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to submit captcha solution');
+                    }
+                    return response.json();
+                })
+                .then(() => {
+                    document.getElementById('status').className = 'status success';
+                    document.getElementById('status').textContent = 'Captcha solved successfully! You can close this window.';
+
+                    // Reload the page after 5 seconds to check for new captchas
+                    setTimeout(() => {
+                        window.location.href = '/pending';
+                    }, 1000);
+                })
+                .catch(error => {
+                    document.getElementById('status').className = 'status error';
+                    document.getElementById('status').textContent = `Error: ${error.message}`;
+                });
+        }
+
+        // Initialize the page
+        async function initPage() {
+            captchaDetails = await fetchCaptchaDetails();
+
+            if (!captchaDetails) {
+                return;
+            }
+
+            document.getElementById('status').className = 'status info';
+            document.getElementById('status').textContent = 'Please solve the captcha below.';
+
+            // Display the site key for debugging
+            const siteKeyDisplay = document.getElementById('site-key-display');
+            siteKeyDisplay.textContent = `Site Key: ${captchaDetails.siteKey}`;
+
+            // Load hCaptcha script
+            const script = document.createElement('script');
+            script.src = 'https://js.hcaptcha.com/1/api.js';
+            script.async = true;
+            script.defer = true;
+            script.onload = () => {
+                // Once the script is loaded, render the captcha
+                setTimeout(() => {
+                    try {
+                        const captchaContainer = document.getElementById('captcha-widget');
+
+                        // Create a div with the data-sitekey attribute
+                        const captchaElement = document.createElement('div');
+                        captchaElement.className = 'h-captcha';
+                        captchaElement.setAttribute('data-sitekey', captchaDetails.siteKey);
+                        captchaElement.setAttribute('data-callback', 'handleCaptchaSolution');
+                        captchaContainer.appendChild(captchaElement);
+
+                        // Make the callback function globally available
+                        window.handleCaptchaSolution = handleCaptchaSolution;
+
+                        // Render hCaptcha if the API is available
+                        if (window.hcaptcha) {
+                            window.hcaptcha.render(captchaElement);
+
+                            // Adicionar um pequeno atraso e então clicar automaticamente no botão de captcha
+                            setTimeout(() => {
+                                const hcaptcha = document.querySelector("#captcha-widget > div > iframe");
+
+                                if (hcaptcha) {
+                                    // Obter a posição do iframe
+                                    const rect = hcaptcha.getBoundingClientRect();
+
+                                    // Calcular o centro aproximado do checkbox dentro do iframe
+                                    // Você precisa ajustar esses valores com base na posição real do checkbox
+                                    const x = rect.left + 30; // supondo que o checkbox está a 30px da borda esquerda do iframe
+                                    const y = rect.top + 30;  // supondo que o checkbox está a 30px da borda superior do iframe
+
+                                    // Criar um evento de clique nas coordenadas especificadas
+                                    const clickEvent = new MouseEvent('click', {
+                                        view: window,
+                                        bubbles: true,
+                                        cancelable: true,
+                                        clientX: x,
+                                        clientY: y
+                                    });
+
+                                    // Disparar o evento no documento
+                                    document.elementFromPoint(x, y).dispatchEvent(clickEvent);
+                                    console.log(`Tentativa de clique nas coordenadas: x=${x}, y=${y}`);
+                                }
+                            }, 3000);
+                        } else {
+                            document.getElementById('status').className = 'status error';
+                            document.getElementById('status').textContent = 'Error: hCaptcha API not available';
+                        }
+                    } catch (error) {
+                        document.getElementById('status').className = 'status error';
+                        document.getElementById('status').textContent = `Error initializing captcha: ${error.message}`;
+                        console.error('Error initializing captcha:', error);
+                    }
+                }, 500); // Small delay to ensure hCaptcha is fully loaded
+            };
+
+            document.head.appendChild(script);
+        }
+
+        // Start initialization
+        initPage();
+    </script>
+</body>
+
+</html>

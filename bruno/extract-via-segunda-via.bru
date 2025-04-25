@@ -1,0 +1,20 @@
+meta {
+  name: extract-via-segunda-via
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{url}}/extract-via-segunda-via
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "numeroCliente": "1256332",
+    "cpfCnpj": "00344207/0001-83",
+    "mesReferencia": "02/2025",
+    "webhookUrl": "http://localhost:3005/api/luga-enel-bot/webhook"
+  }
+}

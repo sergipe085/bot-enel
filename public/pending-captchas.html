@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pending Captchas</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #333;
+            margin-top: 0;
+        }
+
+        .captcha-list {
+            margin-top: 20px;
+        }
+
+        .captcha-item {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .captcha-info {
+            flex: 1;
+        }
+
+        .captcha-time {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .solve-button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+
+        .solve-button:hover {
+            background-color: #0069d9;
+        }
+
+        .no-captchas {
+            text-align: center;
+            padding: 30px;
+            color: #666;
+        }
+
+        .refresh-button {
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 20px;
+            transition: background-color 0.2s;
+        }
+
+        .refresh-button:hover {
+            background-color: #5a6268;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Pending Captchas</h1>
+        <p>Below are captchas waiting to be solved. Click "Solve" to help with a captcha.</p>
+
+        <div id="captcha-list" class="captcha-list">
+            <div class="no-captchas">Loading captchas...</div>
+        </div>
+
+        <button id="refresh-button" class="refresh-button">Refresh List</button>
+    </div>
+
+    <script>
+        // Function to format date
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleString();
+        }
+
+        // Function to calculate time ago
+        function timeAgo(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const seconds = Math.floor((now - date) / 1000);
+
+            if (seconds < 60) {
+                return `${seconds} seconds ago`;
+            }
+
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) {
+                return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+            }
+
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) {
+                return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+            }
+
+            const days = Math.floor(hours / 24);
+            return `${days} day${days === 1 ? '' : 's'} ago`;
+        }
+
+        // Function to fetch and display pending captchas
+        async function fetchPendingCaptchas() {
+            try {
+                const response = await fetch('/api/captcha/pending');
+
+                if (!response.ok) {
+                    throw new Error('Failed to fetch pending captchas');
+                }
+
+                const captchas = await response.json();
+                const captchaListElement = document.getElementById('captcha-list');
+
+                if (captchas.length === 0) {
+                    captchaListElement.innerHTML = '<div class="no-captchas">No pending captchas at the moment. Check back later.</div>';
+                    return;
+                }
+
+                let html = '';
+
+                captchas.forEach(captcha => {
+                    html += `
+                        <div class="captcha-item">
+                            <div class="captcha-info">
+                                <div>ID: ${captcha.id}</div>
+                                <div>URL: ${captcha.url}</div>
+                                <div class="captcha-time">Created: ${timeAgo(captcha.createdAt)}</div>
+                            </div>
+                            <a href="/solve/${captcha.id}">
+                                <button class="solve-button">Solve</button>
+                            </a>
+                        </div>
+                    `;
+                });
+
+                captchaListElement.innerHTML = html;
+
+            } catch (error) {
+                document.getElementById('captcha-list').innerHTML = `
+                    <div class="no-captchas">
+                        Error: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        // Initialize the page
+        fetchPendingCaptchas();
+
+        // Set up refresh button
+        document.getElementById('refresh-button').addEventListener('click', fetchPendingCaptchas);
+
+        // Auto-refresh every 30 seconds
+        setInterval(fetchPendingCaptchas, 30000);
+    </script>
+</body>
+
+</html>
