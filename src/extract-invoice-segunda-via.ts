@@ -9,6 +9,9 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { logger } from './lib/logger';
 import { captchaServer } from './captcha-server-new';
+
+// commit
+
 // Função para tirar screenshots organizadas
 async function takeScreenshot(page: Page, sessionId: string, step: string, screenshotPath: string): Promise<string> {
     // Criar pasta para a sessão se não existir
