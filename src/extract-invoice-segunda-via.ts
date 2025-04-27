@@ -9,6 +9,27 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { logger } from './lib/logger';
 import { captchaServer } from './captcha-server-with-ngrok';
+// Função para tirar screenshots organizadas
+async function takeScreenshot(page: Page, sessionId: string, step: string, screenshotPath: string): Promise<string> {
+    // Criar pasta para a sessão se não existir
+    const sessionDir = path.join(screenshotPath, sessionId);
+    if (!fs.existsSync(sessionDir)) {
+        fs.mkdirSync(sessionDir, { recursive: true });
+    }
+
+    // Formatar timestamp
+    const timestamp = new Date().toISOString().replace(/:/g, '-').replace(/\./g, '-');
+
+    // Nome do arquivo: step_timestamp.png
+    const filename = `${step}_${timestamp}.png`;
+    const filepath = path.join(sessionDir, filename);
+
+    // Tirar screenshot
+    await page.screenshot({ path: filepath, fullPage: true });
+
+    logger.info(`Screenshot salva: ${filepath}`);
+    return filepath;
+}
 // Não importamos mais diretamente o waitForVerificationCode, pois agora usamos a fila
 import { v4 as uuidv4 } from 'uuid';
 import { waitForVerificationCode } from "./email-checker";
@@ -65,6 +86,16 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
     const pdfFileNames = fileUuids.map(uuid => `${uuid}.pdf`);
     logger.info(`Generated PDF filenames: ${pdfFileNames.join(', ')}`);
 
+    // Gerar um ID de sessão único para esta execução (para organizar screenshots)
+    const sessionId = uuidv4();
+    logger.info(`Session ID for screenshots: ${sessionId}`);
+
+    // Caminho para salvar screenshots
+    const screenshotPath = path.join(process.cwd(), 'screenshots');
+    if (!fs.existsSync(screenshotPath)) {
+        fs.mkdirSync(screenshotPath, { recursive: true });
+    }
+
     // Start the captcha server if it's not already running
     try {
         await captchaServer.start();
@@ -74,13 +105,58 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
     }
 
     return new Promise((resolve, reject) => {
-        pupeteer.launch({
-            headless: false,
-            args: [`--disable-dev-shm-usage`, `--disable-gpu`],
-            executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-        }).then(async browser => {
+        // Configuração do Puppeteer para funcionar tanto em ambiente local quanto em Docker
+        const isDocker = process.env.RUNNING_IN_DOCKER === 'true';
+        const puppeteerConfig = {
+            headless: false, // Usando false para ambos os ambientes para evitar detecção de bot
+            args: [
+                `--disable-dev-shm-usage`,
+                `--disable-gpu`,
+                `--no-sandbox`,
+                `--disable-setuid-sandbox`,
+                `--window-size=1280,1024`,
+                `--start-maximized`,
+                // Argumentos para tornar o navegador menos detectável como bot
+                `--disable-blink-features=AutomationControlled`,
+            ],
+            executablePath: isDocker
+                ? '/usr/bin/chromium'
+                : process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+            defaultViewport: null, // Desativa o viewport fixo para parecer mais humano
+        };
+
+        logger.info(`Launching browser with config: ${JSON.stringify(puppeteerConfig)}`);
+
+        pupeteer.launch(puppeteerConfig).then(async browser => {
             try {
                 const page = await browser.newPage();
+
+                // Mascarar a automação para evitar detecção como bot
+                await page.evaluateOnNewDocument(() => {
+                    // Remover a propriedade webdriver
+                    Object.defineProperty(navigator, 'webdriver', {
+                        get: () => undefined
+                    });
+
+                    // Remover outras propriedades que podem identificar automação
+                    delete (window as any).cdc_adoQpoasnfa76pfcZLmcfl_Array;
+                    delete (window as any).cdc_adoQpoasnfa76pfcZLmcfl_Promise;
+                    delete (window as any).cdc_adoQpoasnfa76pfcZLmcfl_Symbol;
+
+                    // Modificar o userAgent para parecer mais humano
+                    Object.defineProperty(navigator, 'userAgent', {
+                        get: () => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+                    });
+
+                    // Adicionar plugins falsos para parecer um navegador normal
+                    Object.defineProperty(navigator, 'plugins', {
+                        get: () => [
+                            { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer' },
+                            { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai' },
+                            { name: 'Native Client', filename: 'internal-nacl-plugin' }
+                        ]
+                    });
+                });
 
                 const client = await page.createCDPSession();
                 await client.send('Page.setDownloadBehavior', {
@@ -89,12 +165,29 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
                 });
                 logger.info("Download behavior configured");
 
-
                 await page.setViewport({ width: 1280, height: 800 });
 
                 await page.goto(
                     "https://www.eneldistribuicao.com.br/ce/AcessoRapidosegundavia.aspx"
                 );
+
+                // Screenshot após carregar a página inicial
+                await takeScreenshot(page, sessionId, '01_pagina_inicial', screenshotPath);
+
+                // Aguardar até que os elementos do formulário estejam carregados
+                logger.info("Aguardando carregamento dos elementos do formulário...");
+                await page.waitForSelector('.form-group', { timeout: 30000 })
+                    .catch(async error => {
+                        // Screenshot em caso de erro
+                        await takeScreenshot(page, sessionId, '02_erro_form_timeout', screenshotPath);
+                        logger.error(`Timeout ao aguardar elementos do formulário: ${error.message}`);
+                        throw new Error("Timeout ao aguardar elementos do formulário");
+                    });
+
+                logger.info("Elementos do formulário carregados, buscando inputs...");
+
+                // Screenshot após carregar os elementos do formulário
+                await takeScreenshot(page, sessionId, '03_form_carregado', screenshotPath);
 
                 const selectedInputs = await page.$$eval(".form-group", (formGroups) => {
                     return formGroups
@@ -114,6 +207,7 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
                                         name: input.name,
                                         type: input.type,
                                         value: input.value,
+                                        label: labelText
                                     };
                                 }
                             }
@@ -122,24 +216,89 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
                         .filter((input) => input !== null);
                 });
 
-                await new Promise((resolve) => setTimeout(resolve, 3000));
+                logger.info(`Inputs encontrados: ${JSON.stringify(selectedInputs)}`);
 
-                const numeroClientInput = await page.$(`#${selectedInputs[0].id}`);
-                if (numeroClientInput) {
-                    await numeroClientInput.click({ clickCount: 3 });
-                    await numeroClientInput.type(numeroCliente, { delay: 200 });
+                // Verificar se encontramos os inputs necessários
+                if (!selectedInputs || selectedInputs.length < 2) {
+                    logger.error(`Não foi possível encontrar todos os campos necessários. Inputs encontrados: ${JSON.stringify(selectedInputs)}`);
+
+                    // Tirar screenshot para debug
+                    await takeScreenshot(page, sessionId, '04_erro_inputs_nao_encontrados', screenshotPath);
+
+                    throw new Error("Não foi possível encontrar os campos de entrada necessários na página");
                 }
 
-                await new Promise((resolve) => setTimeout(resolve, 1000));
+                // Screenshot antes de preencher os campos
+                await takeScreenshot(page, sessionId, '05_antes_preencher_campos', screenshotPath);
 
-                const numeroCpfInput = await page.$(`#${selectedInputs[1].id}`);
-                if (numeroCpfInput) {
-                    await numeroCpfInput.click({ clickCount: 3 });
-                    await numeroCpfInput.type(cpfCnpj, { delay: 200 });
+                // Aguardar mais um pouco para garantir que os inputs estão interativos
+                await new Promise(resolve => setTimeout(resolve, 3000));
+
+                // Verificar se o input do número do cliente existe e tem ID
+                if (selectedInputs[0] && selectedInputs[0].id) {
+                    const selectorCliente = `#${selectedInputs[0].id}`;
+
+                    // Aguardar até que o elemento seja clicável
+                    await page.waitForSelector(selectorCliente, { visible: true, timeout: 10000 })
+                        .catch(error => {
+                            logger.error(`Timeout ao aguardar input do cliente: ${error.message}`);
+                            throw new Error(`Input do cliente não encontrado: ${selectorCliente}`);
+                        });
+
+                    const numeroClientInput = await page.$(selectorCliente);
+                    if (numeroClientInput) {
+                        await numeroClientInput.click({ clickCount: 3 });
+                        await numeroClientInput.type(numeroCliente, { delay: 200 });
+                        logger.info(`Número do cliente digitado: ${numeroCliente}`);
+
+                        // Screenshot após preencher o número do cliente
+                        await takeScreenshot(page, sessionId, '06_numero_cliente_preenchido', screenshotPath);
+                    } else {
+                        logger.error(`Elemento com ID ${selectorCliente} não encontrado na página após espera`);
+                        await takeScreenshot(page, sessionId, '06_erro_cliente_nao_encontrado', screenshotPath);
+                        throw new Error(`Elemento não encontrado após espera: ${selectorCliente}`);
+                    }
+                } else {
+                    logger.error("Input para número do cliente não encontrado ou sem ID");
+                    throw new Error("Input para número do cliente não encontrado ou sem ID");
+                }
+
+                // Aguardar um pouco entre as interações
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                // Verificar se o input do CPF existe e tem ID
+                if (selectedInputs[1] && selectedInputs[1].id) {
+                    const selectorCpf = `#${selectedInputs[1].id}`;
+
+                    // Aguardar até que o elemento seja clicável
+                    await page.waitForSelector(selectorCpf, { visible: true, timeout: 10000 })
+                        .catch(error => {
+                            logger.error(`Timeout ao aguardar input do CPF: ${error.message}`);
+                            throw new Error(`Input do CPF não encontrado: ${selectorCpf}`);
+                        });
+
+                    const numeroCpfInput = await page.$(selectorCpf);
+                    if (numeroCpfInput) {
+                        await numeroCpfInput.click({ clickCount: 3 });
+                        await numeroCpfInput.type(cpfCnpj, { delay: 200 });
+                        logger.info(`CPF/CNPJ digitado: ${cpfCnpj}`);
+
+                        // Screenshot após preencher o CPF/CNPJ
+                        await takeScreenshot(page, sessionId, '07_cpf_preenchido', screenshotPath);
+                    } else {
+                        logger.error(`Elemento com ID ${selectorCpf} não encontrado na página após espera`);
+                        await takeScreenshot(page, sessionId, '07_erro_cpf_nao_encontrado', screenshotPath);
+                        throw new Error(`Elemento não encontrado após espera: ${selectorCpf}`);
+                    }
+                } else {
+                    logger.error("Input para CPF não encontrado ou sem ID");
+                    throw new Error("Input para CPF não encontrado ou sem ID");
                 }
 
                 // Handle hCaptcha
                 try {
+                    // Screenshot antes de lidar com o captcha
+                    await takeScreenshot(page, sessionId, '08_antes_captcha', screenshotPath);
                     let hcaptchaSiteKey = await page.evaluate(() => {
                         const iframe = document.querySelector('iframe[src*="hcaptcha.com"]');
                         if (iframe) {
@@ -183,12 +342,15 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
                     if (hcaptchaSiteKey) {
                         logger.info(`Found hCaptcha with site key: ${hcaptchaSiteKey}`);
 
-                        const screenshotPath = path.join(__dirname, '../public/captcha-screenshot.png');
-                        await page.screenshot({ path: screenshotPath, fullPage: true });
-                        logger.info(`Saved captcha screenshot to ${screenshotPath}`);
+                        // Screenshot do captcha encontrado
+                        await takeScreenshot(page, sessionId, '09_captcha_encontrado', screenshotPath);
+
+                        const captchaScreenshotPath = path.join(__dirname, '../public/captcha-screenshot.png');
+                        await page.screenshot({ path: captchaScreenshotPath, fullPage: true });
+                        logger.info(`Saved captcha screenshot to ${captchaScreenshotPath}`);
 
                         const publicScreenshotPath = path.join(__dirname, '../public/captcha-screenshot.png');
-                        fs.copyFileSync(screenshotPath, publicScreenshotPath);
+                        fs.copyFileSync(captchaScreenshotPath, publicScreenshotPath);
 
                         logger.info("Waiting for human to solve captcha...");
 
@@ -232,7 +394,6 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
                 } catch (captchaError) {
                     logger.error("Error handling captcha:", captchaError);
                 }
-
 
                 // Finally, click the submit button after CAPTCHA is solved 
                 const submitButton = await page.$("#CONTENT_Formulario_Solicitar");
@@ -325,7 +486,6 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
                 await new Promise((resolve) => setTimeout(resolve, 15000));
 
                 await page.waitForSelector('#CONTENT_segviarapida_GridViewSegVia tbody tr');
-
 
                 // Array para armazenar os caminhos dos PDFs baixados
                 const downloadedPdfs: string[] = [];

@@ -1,0 +1,60 @@
+services:
+  # Servidor principal
+  main-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bot-enel-main
+    ports:
+      - "3006:3006"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - ./screenshots:/app/screenshots
+    command: ["/app/start-xvfb.sh", "pnpm", "start"]
+    environment:
+      - PORT=3006
+      - NODE_ENV=development
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RUNNING_IN_DOCKER=true
+      - DISPLAY=:99
+    restart: unless-stopped
+    depends_on:
+      - redis
+
+  # Servidor de captcha
+  captcha-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bot-enel-captcha
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - ./screenshots:/app/screenshots
+    command: pnpm exec tsx src/start-captcha-server.ts
+    environment:
+      - NODE_ENV=development
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RUNNING_IN_DOCKER=true
+      - DISPLAY=:99
+    restart: unless-stopped
+    depends_on:
+      - redis
+
+  # Redis para BullMQ e outras funcionalidades
+  redis:
+    image: redis:alpine
+    container_name: bot-enel-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+volumes:
+  redis-data:
