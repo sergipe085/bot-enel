@@ -27,8 +27,14 @@ export class CaptchaServer {
   private captchaRequests: Map<string, CaptchaRequest> = new Map();
   private port: number;
 
-  constructor(port = 3000) {
-    this.port = port;
+  constructor(port?: number) {
+    // Usar porta 3000 dentro do Docker e 3007 fora do Docker, a menos que seja explicitamente especificada
+    if (port) {
+      this.port = port;
+    } else {
+      this.port = process.env.RUNNING_IN_DOCKER === 'true' ? 3000 : 3007;
+    }
+
     this.app = express();
     this.setupServer();
   }

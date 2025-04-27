@@ -24,8 +24,14 @@ export class CaptchaServer {
   private captchaRequests: Map<string, CaptchaRequest> = new Map();
   private port: number;
 
-  constructor(port = 3000) {
-    this.port = port;
+  constructor(port?: number) {
+    // Usar porta 3000 dentro do Docker e 3007 fora do Docker, a menos que seja explicitamente especificada
+    if (port) {
+      this.port = port;
+    } else {
+      this.port = process.env.RUNNING_IN_DOCKER === 'true' ? 3000 : 3007;
+    }
+
     this.app = express();
     this.setupServer();
   }
@@ -241,8 +247,13 @@ export class CaptchaServer {
    * @returns Promise with the solved captcha token
    */
   public async submitCaptcha(siteKey: string, url: string): Promise<string> {
+    // Determinar o host correto baseado no ambiente
+    const baseUrl = process.env.RUNNING_IN_DOCKER === 'true'
+      ? 'http://captcha-server:3000'
+      : `http://localhost:${this.port}`;
+
     // Create a new captcha request
-    const response = await fetch(`http://localhost:${this.port}/api/captcha/request`, {
+    const response = await fetch(`${baseUrl}/api/captcha/request`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -253,13 +264,18 @@ export class CaptchaServer {
     const data = await response.json();
     const { id } = data;
 
-    logger.info(`Submitted captcha request ${id}, waiting for human to solve at http://localhost:${this.port}/solve/${id}`);
+    // URL para exibição ao usuário (sempre usando localhost com a porta correta)
+    const userVisibleUrl = process.env.RUNNING_IN_DOCKER === 'true'
+      ? `http://localhost:3007/solve/${id}`
+      : `http://localhost:${this.port}/solve/${id}`;
+
+    logger.info(`Submitted captcha request ${id}, waiting for human to solve at ${userVisibleUrl}`);
 
     // Poll for the solution
     return new Promise((resolve, reject) => {
       const checkInterval = setInterval(async () => {
         try {
-          const statusResponse = await fetch(`http://localhost:${this.port}/api/captcha/status/${id}`);
+          const statusResponse = await fetch(`${baseUrl}/api/captcha/status/${id}`);
           const statusData = await statusResponse.json();
 
           if (statusData.status === 'solved' && statusData.token) {

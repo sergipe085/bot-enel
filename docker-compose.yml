@@ -30,7 +30,7 @@ services:
       dockerfile: Dockerfile
     container_name: bot-enel-captcha
     ports:
-      - "3000:3000"
+      - "3007:3000"
     volumes:
       - .:/app
       - /app/node_modules

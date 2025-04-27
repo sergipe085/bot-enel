@@ -8,7 +8,7 @@ import { RetriablePromise } from "./promise";
 import * as path from 'path';
 import * as fs from 'fs';
 import { logger } from './lib/logger';
-import { captchaServer } from './captcha-server-with-ngrok';
+import { captchaServer } from './captcha-server-new';
 // Função para tirar screenshots organizadas
 async function takeScreenshot(page: Page, sessionId: string, step: string, screenshotPath: string): Promise<string> {
     // Criar pasta para a sessão se não existir
@@ -354,7 +354,10 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
 
                         logger.info("Waiting for human to solve captcha...");
 
-                        const captchaServerUrl = 'http://localhost:3000';
+                        // Usar a porta 3007 quando estiver rodando localmente, ou a porta 3000 dentro do Docker
+                        const captchaServerUrl = process.env.RUNNING_IN_DOCKER === 'true'
+                            ? 'http://captcha-server:3000'
+                            : 'http://localhost:3007';
 
                         logger.info(`Please open ${captchaServerUrl}/pending in your browser to solve the captcha`);
                         logger.info(`The site key being used is: ${hcaptchaSiteKey}`);
