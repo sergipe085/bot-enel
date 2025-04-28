@@ -70,7 +70,7 @@ export const extractionWorker = new Worker<ExtractionJobData, ExtractionJobResul
             status: 'completed',
             pdfs: await Promise.all(result.pdfs.map(async (pdf) => {
 
-              const primeiros5DigitosCnpj = String(cpfCnpj).slice(0, 5);
+              const primeiros5DigitosCnpj = String(cpfCnpj).replace(/\D/g, '').slice(0, 5);
               const decryptedContent = await decryptBase64PdfWithQpdf(pdf.base64Content, primeiros5DigitosCnpj);
               return {
                 ...pdf,
