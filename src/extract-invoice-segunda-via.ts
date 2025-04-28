@@ -620,7 +620,9 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
                                 return;
                             }
 
-                            await new Promise(r => setTimeout(r, 5000));
+                            await takeScreenshot(page, sessionId, '23_depois_de_clicar_no_botao_de_download', screenshotPath);
+
+                            await new Promise(r => setTimeout(r, 15000));
 
                             await page.evaluate(() => {
                                 const buttons = document.querySelectorAll('button');
@@ -629,6 +631,9 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
                                     button.click();
                                 }
                             });
+
+                            await takeScreenshot(page, sessionId, '24_depois_de_clicar_no_botao_de_ok', screenshotPath);
+
 
                             // Nome do arquivo para este mês específico
                             const pdfFileName = pdfFileNames[index];
