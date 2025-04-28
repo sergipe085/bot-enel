@@ -539,15 +539,21 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
                     }
                 }
 
+                await takeScreenshot(page, sessionId, '20_codigo_email_escrito', screenshotPath);
+
                 const submitCodeButton = await page.$("#CONTENT_Formulario_ProximoSt4");
                 if (submitCodeButton) {
                     await submitCodeButton.click();
                     logger.info("Clicked submit code button");
                 }
 
+                await takeScreenshot(page, sessionId, '21_depois_de_clicar_no_botao_de_submit', screenshotPath);
+
                 await new Promise((resolve) => setTimeout(resolve, 15000));
 
                 await page.waitForSelector('#CONTENT_segviarapida_GridViewSegVia tbody tr');
+
+                await takeScreenshot(page, sessionId, '22_depois_15_segundos', screenshotPath);
 
                 // Array para armazenar os caminhos dos PDFs baixados
                 const downloadedPdfs: string[] = [];
