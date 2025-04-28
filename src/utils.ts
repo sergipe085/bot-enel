@@ -3,6 +3,7 @@ import { PDFDocument } from 'pdf-lib';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as path from 'path';
+import { v4 as uuidv4 } from 'uuid';
 
 const execPromise = promisify(exec);
 
@@ -44,9 +45,11 @@ async function decryptBase64PdfWithPdfLib(base64Input: string, password: string)
 // Alternative approach using qpdf external tool
 export async function decryptBase64PdfWithQpdf(base64Input: string, password: string): Promise<string> {
     try {
+        const uuid = uuidv4();
+
         // Create temporary files
-        const tempInputPath = path.join(__dirname, 'temp_encrypted.pdf');
-        const tempOutputPath = path.join(__dirname, 'temp_decrypted.pdf');
+        const tempInputPath = path.join(__dirname, `temp_encrypted_${uuid}.pdf`);
+        const tempOutputPath = path.join(__dirname, `temp_decrypted_${uuid}.pdf`);
 
         // Step 1: Decode the base64 input to a temporary PDF file
         const pdfBuffer = Buffer.from(base64Input, 'base64');
