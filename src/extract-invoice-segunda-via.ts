@@ -121,11 +121,22 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
                 `--start-maximized`,
                 // Argumentos para tornar o navegador menos detectável como bot
                 `--disable-blink-features=AutomationControlled`,
-            ],
+                // Argumentos adicionais para o ambiente X11 no Docker
+                isDocker ? `--display=${process.env.DISPLAY || ':99'}` : '',
+                isDocker ? '--disable-software-rasterizer' : '',
+                isDocker ? '--disable-dev-shm-usage' : '',
+                isDocker ? '--disable-extensions' : '',
+                isDocker ? '--mute-audio' : '',
+            ].filter(Boolean), // Remove argumentos vazios
             executablePath: isDocker
                 ? '/usr/bin/chromium'
                 : process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
             defaultViewport: null, // Desativa o viewport fixo para parecer mais humano
+            env: isDocker ? {
+                ...process.env,
+                DISPLAY: process.env.DISPLAY || ':99',
+                DBUS_SESSION_BUS_ADDRESS: process.env.DBUS_SESSION_BUS_ADDRESS || 'unix:path=/var/run/dbus/system_bus_socket'
+            } : undefined,
         };
 
         logger.info(`Launching browser with config: ${JSON.stringify(puppeteerConfig)}`);
@@ -401,22 +412,57 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
                     logger.error("Error handling captcha:", captchaError);
                 }
 
+                await new Promise((resolve) => setTimeout(resolve, 1000));
+
+                await takeScreenshot(page, sessionId, '10_antes_de_clicar_no_submit', screenshotPath);
+
                 // Finally, click the submit button after CAPTCHA is solved 
                 const submitButton = await page.$("#CONTENT_Formulario_Solicitar");
                 if (submitButton) {
                     await submitButton.click();
                     logger.info("Clicked submit button");
                 }
+                await takeScreenshot(page, sessionId, '11_depois_de_clicar_no_submit', screenshotPath);
 
                 await new Promise((resolve) => setTimeout(resolve, 5000));
 
-                await page.waitForSelector("#CONTENT_Formulario_RdEmail2");
+                await takeScreenshot(page, sessionId, '12_depois_5_segundos', screenshotPath);
 
-                const emailInput = await page.$("#CONTENT_Formulario_RdEmail2");
+                await page.waitForSelector('input[value^="co"][value*="@gmail.com"]');
+
+                const emailInput = await page.$('input[value^="co"][value*="@gmail.com"]');
 
                 if (emailInput) {
                     await emailInput.click();
+
+                    // pega o id do input
+                    const id = await emailInput.evaluate(el => el.id);
+
+                    // extrai o número do final do id
+                    const match = id.match(/\d+$/);
+
+                    if (match) {
+                        const num = match[0];
+
+                        // monta o seletor do outro input
+                        const rdEmailSelector = `#CONTENT_Formulario_RdEmail${num}`;
+
+                        // espera o outro input aparecer
+                        await page.waitForSelector(rdEmailSelector);
+
+                        // pega o handle do outro input
+                        const rdEmailInput = await page.$(rdEmailSelector);
+
+                        if (rdEmailInput) {
+                            console.log('Achei o segundo input!', rdEmailSelector);
+
+                            await rdEmailInput.click()
+                        }
+                    }
                 }
+
+                await new Promise((resolve) => setTimeout(resolve, 1000));
+                await takeScreenshot(page, sessionId, '13_depois_de_clicar_no_email', screenshotPath);
 
                 // Importamos dinamicamente para evitar dependência circular
                 const { checkEmailLockAvailability, acquireEmailLock } = await import('./queues/email-access-queue');
@@ -432,6 +478,10 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
                     logger.info(`Email lock is not available, waiting for it to be released...`);
                     await acquireEmailLock(codeRequestId, true); // true = aguardar até que o lock esteja disponível
                 }
+                await takeScreenshot(page, sessionId, '14_depois_de_clicar_no_email', screenshotPath);
+
+                await new Promise((resolve) => setTimeout(resolve, 5000));
+                await takeScreenshot(page, sessionId, '15_depois_5_segundos', screenshotPath);
 
                 // Agora que temos o lock (ou ele já estava disponível), podemos clicar no botão
                 const submitEmailCodeButton = await page.$("#CONTENT_Formulario_EnviarSt2");
@@ -449,14 +499,20 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
                     await releaseEmailAccess(codeRequestId);
                     throw new Error("Could not find submit email code button");
                 }
+                await takeScreenshot(page, sessionId, '16_depois_de_clicar_no_email', screenshotPath);
 
                 await new Promise((resolve) => setTimeout(resolve, 5000));
+                await takeScreenshot(page, sessionId, '17_depois_5_segundos', screenshotPath);
 
                 const continueButton = await page.$("#CONTENT_Formulario_ContinuarSt3");
                 if (continueButton) {
                     await continueButton.click();
                     logger.info("Clicked continue button");
                 }
+                await takeScreenshot(page, sessionId, '18_depois_de_clicar_no_continuar', screenshotPath);
+
+                await new Promise((resolve) => setTimeout(resolve, 5000));
+                await takeScreenshot(page, sessionId, '19_depois_5_segundos', screenshotPath);
 
                 // Solicitar código de verificação diretamente
                 logger.info("Waiting for verification code email...");
@@ -546,6 +602,8 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
 
                             await new Promise(r => setTimeout(r, 5000));
 
+
+
                             const downloadButton = await page.$("#CONTENT_segviarapida_btnSalvarPDF");
                             if (downloadButton) {
                                 await downloadButton.click();
@@ -557,6 +615,14 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
                             }
 
                             await new Promise(r => setTimeout(r, 5000));
+
+                            await page.evaluate(() => {
+                                const buttons = document.querySelectorAll('button');
+                                const button = Array.from(buttons).find(btn => btn.textContent?.trim() === 'Ok') || null;
+                                if (button) {
+                                    button.click();
+                                }
+                            });
 
                             // Nome do arquivo para este mês específico
                             const pdfFileName = pdfFileNames[index];

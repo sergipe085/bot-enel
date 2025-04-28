@@ -2,12 +2,14 @@ FROM node:18-slim
 
 WORKDIR /app
 
-# Instalar Chromium, xvfb e outras dependências necessárias
+# Instalar Chromium, xvfb, qpdf e outras dependências necessárias
 RUN apt-get update && apt-get install -y \
     chromium \
     xvfb \
     x11vnc \
     x11-utils \
+    dbus \
+    dbus-x11 \
     libgbm1 \
     libnss3 \
     libatk1.0-0 \
@@ -21,6 +23,7 @@ RUN apt-get update && apt-get install -y \
     libxrandr2 \
     libgbm1 \
     libasound2 \
+    qpdf \
     && rm -rf /var/lib/apt/lists/*
 
 # Instalar pnpm
