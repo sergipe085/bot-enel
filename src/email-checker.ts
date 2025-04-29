@@ -20,17 +20,22 @@ const EMAIL_CONFIG = {
  * @param searchCriteria - What to search for in the emails
  * @param maxWaitTimeMs - Maximum time to wait for the email in milliseconds
  * @param codeRegex - Regular expression to extract the code from email body
+ * @param sinceDate - Optional date to search for emails received after this date
  * @returns The verification code if found, null otherwise
  */
 export async function getVerificationCodeFromEmail(
     searchCriteria: string = 'UNSEEN',
     maxWaitTimeMs: number = 60000,
-    codeRegex: RegExp = /Seu c&oacute;digo de valida&ccedil;&atilde;o &eacute;:[\s\S]*?<span[^>]*>[\s\S]*?([0-9]+)[\s\S]*?<\/span>/
+    codeRegex: RegExp = /Seu c&oacute;digo de valida&ccedil;&atilde;o &eacute;:[\s\S]*?<span[^>]*>[\s\S]*?([0-9]+)[\s\S]*?<\/span>/,
+    sinceDate?: Date
 ): Promise<string | null> {
     logger.info('Checking email for verification code...');
 
     const startTime = Date.now();
     let connection: ImapSimple | null = null;
+
+    // Se sinceDate não for fornecido, use a hora atual como referência
+    const searchSinceDate = sinceDate || new Date();
 
     try {
         connection = await connect({ imap: EMAIL_CONFIG });
@@ -44,7 +49,19 @@ export async function getVerificationCodeFromEmail(
                 markSeen: true
             };
 
-            const messages = await connection.search([searchCriteria], searchOptions);
+            // Formatar a data para o formato que o IMAP espera (DD-MMM-YYYY)
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const formattedDate = [
+                searchSinceDate.getDate(),
+                months[searchSinceDate.getMonth()],
+                searchSinceDate.getFullYear()
+            ].join('-');
+
+            // Criar critérios de busca: emails não vistos E recebidos após a data de início
+            const searchArray = [searchCriteria, ['SINCE', formattedDate]];
+            logger.info(`Searching for emails with criteria: ${searchCriteria} and SINCE ${formattedDate}`);
+
+            const messages = await connection.search(searchArray, searchOptions);
             logger.info(`Found ${messages.length} messages matching criteria`);
 
             for (const message of messages.reverse()) {
@@ -109,5 +126,9 @@ export async function waitForVerificationCode(timeoutMs: number = 120000): Promi
     // Search for unread emails - use simple UNSEEN criteria
     const searchCriteria = 'UNSEEN';
 
-    return await getVerificationCodeFromEmail(searchCriteria, timeoutMs);
+    // Use a data atual como ponto de referência para buscar apenas emails recebidos após iniciar a função
+    const startTime = new Date();
+    logger.info(`Will only check emails received after: ${startTime.toISOString()}`);
+
+    return await getVerificationCodeFromEmail(searchCriteria, timeoutMs, undefined, startTime);
 }
