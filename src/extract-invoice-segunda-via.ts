@@ -14,24 +14,31 @@ import { captchaServer } from './captcha-server-new';
 
 // Função para tirar screenshots organizadas
 async function takeScreenshot(page: Page, sessionId: string, step: string, screenshotPath: string): Promise<string> {
-    // Criar pasta para a sessão se não existir
-    const sessionDir = path.join(screenshotPath, sessionId);
-    if (!fs.existsSync(sessionDir)) {
-        fs.mkdirSync(sessionDir, { recursive: true });
+
+    try {
+        // Criar pasta para a sessão se não existir
+        const sessionDir = path.join(screenshotPath, sessionId);
+        if (!fs.existsSync(sessionDir)) {
+            fs.mkdirSync(sessionDir, { recursive: true });
+        }
+
+        // Formatar timestamp
+        const timestamp = new Date().toISOString().replace(/:/g, '-').replace(/\./g, '-');
+
+        // Nome do arquivo: step_timestamp.png
+        const filename = `${step}_${timestamp}.png`;
+        const filepath = path.join(sessionDir, filename);
+
+        // Tirar screenshot
+        await page.screenshot({ path: filepath, fullPage: true });
+
+        logger.info(`Screenshot salva: ${filepath}`);
+        return filepath;
     }
-
-    // Formatar timestamp
-    const timestamp = new Date().toISOString().replace(/:/g, '-').replace(/\./g, '-');
-
-    // Nome do arquivo: step_timestamp.png
-    const filename = `${step}_${timestamp}.png`;
-    const filepath = path.join(sessionDir, filename);
-
-    // Tirar screenshot
-    await page.screenshot({ path: filepath, fullPage: true });
-
-    logger.info(`Screenshot salva: ${filepath}`);
-    return filepath;
+    catch (err: any) {
+        logger.error('Erro ao tirar screenshot:', err);
+        return '';
+    }
 }
 // Não importamos mais diretamente o waitForVerificationCode, pois agora usamos a fila
 import { v4 as uuidv4 } from 'uuid';
