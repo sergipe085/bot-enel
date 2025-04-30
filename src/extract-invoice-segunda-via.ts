@@ -560,8 +560,8 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
 
                 await new Promise((resolve) => setTimeout(resolve, 15000));
 
-                await takeScreenshot(page, sessionId, '22_depois_15_segundos', screenshotPath);
                 await page.waitForSelector('#CONTENT_segviarapida_GridViewSegVia tbody tr');
+                await takeScreenshot(page, sessionId, '22_depois_15_segundos', screenshotPath);
 
 
                 // Array para armazenar os caminhos dos PDFs baixados
