@@ -106,6 +106,8 @@ export const extractionWorker = new Worker<ExtractionJobData, ExtractionJobResul
         });
       }
 
+      throw error;
+
       return {
         id,
         status: 'failed',
