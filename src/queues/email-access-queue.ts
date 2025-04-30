@@ -146,7 +146,7 @@ export async function acquireEmailLock(requestId: string, waitForLock: boolean =
       let waitAttempts = 0;
       const maxWaitAttempts = 120; // 10 minutos (5s * 120)
 
-      while (waitAttempts < maxWaitAttempts) {
+      while (true) {
         // Verificar se o lock ainda existe
         const currentLock = await redisConnection.get(EMAIL_LOCK_KEY);
         if (!currentLock) {
@@ -155,7 +155,7 @@ export async function acquireEmailLock(requestId: string, waitForLock: boolean =
         }
 
         logger.info(`Request ${requestId} waiting for lock to be released (attempt ${waitAttempts + 1}/${maxWaitAttempts})`);
-        await new Promise(resolve => setTimeout(resolve, 5000)); // Esperar 5 segundos
+        await new Promise(resolve => setTimeout(resolve, 10000)); // Esperar 10 segundos
         waitAttempts++;
       }
 

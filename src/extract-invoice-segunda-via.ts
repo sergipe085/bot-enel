@@ -50,11 +50,6 @@ pupeteer.use(Stealth());
 logger.info("Puppeteer setup complete");
 
 // Setup download directory
-const downloadPath = path.resolve(__dirname, 'downloads');
-if (!fs.existsSync(downloadPath)) {
-    fs.mkdirSync(downloadPath);
-    logger.info(`Created download directory at: ${downloadPath}`);
-}
 
 // Type definitions
 type ExtractInvoiceParams = {
@@ -171,6 +166,13 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
                         ]
                     });
                 });
+
+                const downloadPath = path.resolve(__dirname, 'downloads', sessionId);
+                if (!fs.existsSync(downloadPath)) {
+                    fs.mkdirSync(downloadPath, { recursive: true });
+                    logger.info(`Created download directory at: ${downloadPath}`);
+                }
+
 
                 const client = await page.createCDPSession();
                 await client.send('Page.setDownloadBehavior', {
