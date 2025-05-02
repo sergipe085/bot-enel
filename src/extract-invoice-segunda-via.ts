@@ -611,7 +611,7 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
 
                             if (!found) {
                                 logger.warn(`Invoice for month ${mes} not found`);
-                                rejectMonth(new Error(`Invoice for month ${mes} not found`));
+                                rejectMonth(`Invoice for month ${mes} not found`);
                                 return;
                             }
 
@@ -686,11 +686,10 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
                                 attempts++;
                                 if (attempts >= maxAttempts) {
                                     logger.warn(`Invoice PDF for month ${mes} not found after maximum attempts`);
-                                    rejectMonth(new Error(`Invoice PDF for month ${mes} not found`));
+                                    rejectMonth(`Invoice PDF for month ${mes} not found`);
                                     return;
                                 }
 
-                                // Esperar e tentar novamente
                                 logger.info(`PDF for month ${mes} not found yet, waiting... (attempt ${attempts}/${maxAttempts})`);
                                 setTimeout(checkFileExists, 2000);
                             };
