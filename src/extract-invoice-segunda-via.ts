@@ -695,7 +695,7 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
                                 attempts++;
                                 if (attempts >= maxAttempts) {
                                     logger.warn(`Invoice PDF for month ${mes} not found after maximum attempts`);
-                                    rejectMonth(`Invoice PDF for month ${mes} not found`);
+                                    resolveMonth("");
                                     return;
                                 }
 
