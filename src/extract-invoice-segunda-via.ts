@@ -68,7 +68,6 @@ type ExtractInvoiceParams = {
 type PdfResult = {
     base64Content: string;
     mesReferencia: string;
-    error?: string; // Campo opcional para mensagem de erro
 };
 
 type InvoiceResult = {
@@ -569,8 +568,8 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
                 const downloadedPdfs: string[] = [];
 
                 // Função para baixar um PDF de um mês específico
-                const downloadPdfForMonth = async (mes: string, index: number): Promise<{ path: string; error?: string }> => {
-                    return new Promise(async (resolveMonth) => {
+                const downloadPdfForMonth = async (mes: string, index: number): Promise<string> => {
+                    return new Promise(async (resolveMonth, rejectMonth) => {
                         try {
                             // Se não for o primeiro mês, precisamos limpar seleções anteriores
                             if (index > 0) {
@@ -612,11 +611,13 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
 
                             if (!found) {
                                 logger.warn(`Invoice for month ${mes} not found`);
-                                resolveMonth({ path: '', error: `Invoice for month ${mes} not found` });
+                                rejectMonth(`Invoice for month ${mes} not found`);
                                 return;
                             }
 
                             await new Promise(r => setTimeout(r, 5000));
+
+
 
                             const downloadButton = await page.$("#CONTENT_segviarapida_btnSalvarPDF");
                             if (downloadButton) {
@@ -624,7 +625,7 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
                                 logger.info(`Clicked download button for month ${mes}`);
                             } else {
                                 logger.warn("Download button not found");
-                                resolveMonth({ path: '', error: "Download button not found" });
+                                rejectMonth(new Error("Download button not found"));
                                 return;
                             }
 
@@ -642,6 +643,7 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
 
                             await takeScreenshot(page, sessionId, '24_depois_de_clicar_no_botao_de_ok', screenshotPath);
 
+
                             // Nome do arquivo para este mês específico
                             const pdfFileName = pdfFileNames[index];
                             const pdfPath = path.join(downloadPath, pdfFileName);
@@ -653,7 +655,7 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
                             const checkFileExists = () => {
                                 if (fs.existsSync(pdfPath)) {
                                     logger.info(`Invoice PDF for month ${mes} downloaded successfully: ${pdfPath}`);
-                                    resolveMonth({ path: pdfPath });
+                                    resolveMonth(pdfPath);
                                     return;
                                 }
 
@@ -677,14 +679,14 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
                                     }
 
                                     logger.info(`Invoice PDF for month ${mes} downloaded successfully: ${newPath}`);
-                                    resolveMonth({ path: newPath });
+                                    resolveMonth(newPath);
                                     return;
                                 }
 
                                 attempts++;
                                 if (attempts >= maxAttempts) {
                                     logger.warn(`Invoice PDF for month ${mes} not found after maximum attempts`);
-                                    resolveMonth({ path: '', error: `Invoice PDF for month ${mes} not found after maximum attempts` });
+                                    rejectMonth(`Invoice PDF for month ${mes} not found`);
                                     return;
                                 }
 
@@ -696,52 +698,65 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
                             setTimeout(checkFileExists, 2000);
                         } catch (error: any) {
                             logger.error(`Error downloading PDF for month ${mes}:`, error);
-                            resolveMonth({ path: '', error: error.message || `Error downloading PDF for month ${mes}` });
+                            rejectMonth(error.message);
                         }
                     });
                 };
 
                 try {
-                    // Armazenar resultados de download (caminho do arquivo e possíveis erros)
-                    const downloadResults: { path: string; error?: string; mes: string }[] = [];
-
                     // Baixar PDFs para cada mês sequencialmente
                     for (let i = 0; i < mesesReferencia.length; i++) {
                         const mes = mesesReferencia[i];
-                        const result = await downloadPdfForMonth(mes, i);
-
-                        // Armazenar o resultado com o mês correspondente
-                        downloadResults.push({ ...result, mes });
-
-                        // Adicionar à lista de PDFs baixados apenas se o download foi bem-sucedido
-                        if (result.path) {
-                            downloadedPdfs.push(result.path);
-                            logger.info(`Successfully downloaded PDF ${i + 1}/${mesesReferencia.length} for month ${mes}`);
-                        } else {
-                            logger.warn(`Failed to download PDF for month ${mes}: ${result.error}`);
-                        }
+                        const pdfPath = await downloadPdfForMonth(mes, i);
+                        downloadedPdfs.push(pdfPath);
+                        logger.info(`Successfully downloaded PDF ${i + 1}/${mesesReferencia.length} for month ${mes}`);
                     }
 
                     // Converter os PDFs para base64 antes de retornar
                     const pdfResults: PdfResult[] = [];
 
-                    // Processar todos os meses, independentemente de terem sido baixados com sucesso ou não
-                    for (const result of downloadResults) {
-                        const { path: pdfPath, mes, error } = result;
+                    for (let i = 0; i < downloadedPdfs.length; i++) {
+                        const pdfPath = downloadedPdfs[i];
+                        const mes = mesesReferencia[i];
 
-                        // Se tiver um erro e não tiver caminho, adicionar resultado com erro
-                        if (error && !pdfPath) {
+                        try {
+                            // Ler o arquivo PDF e convertê-lo para base64
+                            const pdfBuffer = fs.readFileSync(pdfPath);
+                            const base64Content = pdfBuffer.toString('base64');
+
+                            // Adicionar ao array de resultados
                             pdfResults.push({
-                                base64Content: '', // Base64 vazio
-                                mesReferencia: mes,
-                                error: error // Incluir a mensagem de erro
+                                base64Content,
+                                mesReferencia: mes
                             });
-                            logger.info(`Added error result for month ${mes}: ${error}`);
-                            continue;
-                        }
 
-                        // Se tiver um caminho válido, processar o PDF
-                        if (pdfPath) {
+                            // Remover o arquivo após a conversão
+                            fs.unlinkSync(pdfPath);
+                            logger.info(`Removed temporary PDF file: ${pdfPath}`);
+                        } catch (error) {
+                            logger.error(`Error processing PDF file ${pdfPath} for month ${mes}:`, error);
+                        }
+                    }
+
+                    // Resolver a promise principal com os resultados
+                    resolve({
+                        barCode: '',
+                        pdfs: pdfResults
+                    });
+                } catch (error) {
+                    // Se algum PDF falhar, ainda retornamos os que foram baixados com sucesso
+                    if (downloadedPdfs.length > 0) {
+                        logger.warn(`Some PDFs failed to download, but returning ${downloadedPdfs.length} successful downloads`);
+
+                        // Converter os PDFs disponíveis para base64
+                        const pdfResults: PdfResult[] = [];
+
+                        for (let i = 0; i < downloadedPdfs.length; i++) {
+                            const pdfPath = downloadedPdfs[i];
+                            // Encontrar o mês correspondente ao índice do PDF baixado
+                            const mesIndex = mesesReferencia.findIndex((_, idx) => idx === i);
+                            const mes = mesIndex >= 0 ? mesesReferencia[mesIndex] : 'unknown';
+
                             try {
                                 // Ler o arquivo PDF e convertê-lo para base64
                                 const pdfBuffer = fs.readFileSync(pdfPath);
@@ -758,66 +773,6 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
                                 logger.info(`Removed temporary PDF file: ${pdfPath}`);
                             } catch (error) {
                                 logger.error(`Error processing PDF file ${pdfPath} for month ${mes}:`, error);
-                                // Adicionar resultado com erro de processamento
-                                pdfResults.push({
-                                    base64Content: '',
-                                    mesReferencia: mes,
-                                    error: `Error processing PDF file: ${error.message || 'Unknown error'}`
-                                });
-                            }
-                        }
-                    }
-
-                    // Resolver a promise principal com os resultados
-                    resolve({
-                        barCode: '',
-                        pdfs: pdfResults
-                    });
-                } catch (error) {
-                    logger.error(`Unexpected error in extraction process:`, error);
-
-                    // Mesmo com erro inesperado, tentamos retornar os PDFs que foram baixados com sucesso
-                    if (downloadedPdfs.length > 0) {
-                        logger.warn(`Returning ${downloadedPdfs.length} successful downloads despite error`);
-
-                        // Converter os PDFs disponíveis para base64
-                        const pdfResults: PdfResult[] = [];
-
-                        // Adicionar resultados para todos os meses solicitados
-                        for (let i = 0; i < mesesReferencia.length; i++) {
-                            const mes = mesesReferencia[i];
-                            const pdfPath = downloadedPdfs.find((_, idx) => idx === i);
-
-                            if (pdfPath) {
-                                try {
-                                    // Ler o arquivo PDF e convertê-lo para base64
-                                    const pdfBuffer = fs.readFileSync(pdfPath);
-                                    const base64Content = pdfBuffer.toString('base64');
-
-                                    // Adicionar ao array de resultados
-                                    pdfResults.push({
-                                        base64Content,
-                                        mesReferencia: mes
-                                    });
-
-                                    // Remover o arquivo após a conversão
-                                    fs.unlinkSync(pdfPath);
-                                    logger.info(`Removed temporary PDF file: ${pdfPath}`);
-                                } catch (processError) {
-                                    logger.error(`Error processing PDF file ${pdfPath} for month ${mes}:`, processError);
-                                    pdfResults.push({
-                                        base64Content: '',
-                                        mesReferencia: mes,
-                                        error: `Error processing PDF file: ${processError.message || 'Unknown error'}`
-                                    });
-                                }
-                            } else {
-                                // Adicionar resultado com erro para os meses que não foram baixados
-                                pdfResults.push({
-                                    base64Content: '',
-                                    mesReferencia: mes,
-                                    error: `PDF download failed for month ${mes}`
-                                });
                             }
                         }
 
@@ -826,17 +781,7 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
                             pdfs: pdfResults
                         });
                     } else {
-                        // Se nenhum PDF foi baixado, ainda retornamos um resultado para cada mês solicitado
-                        const pdfResults: PdfResult[] = mesesReferencia.map(mes => ({
-                            base64Content: '',
-                            mesReferencia: mes,
-                            error: `Failed to download PDF: ${error.message || 'Unknown error'}`
-                        }));
-
-                        resolve({
-                            barCode: '',
-                            pdfs: pdfResults
-                        });
+                        reject(error);
                     }
                 }
 
