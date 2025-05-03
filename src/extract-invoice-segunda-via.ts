@@ -676,14 +676,20 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
                                     const downloadedPath = path.join(downloadPath, mostRecentPdf);
                                     const newPath = path.join(downloadPath, pdfFileName);
 
+
+                                    console.log({
+                                        downloadedPath,
+                                        newPath
+                                    })
+
                                     // Renomear o arquivo para o nome UUID
-                                    if (downloadedPath !== newPath) {
-                                        fs.renameSync(downloadedPath, newPath);
-                                        logger.info(`Renamed downloaded PDF from ${mostRecentPdf} to ${pdfFileName}`);
-                                    }
+                                    // if (downloadedPath !== newPath) {
+                                    //     fs.renameSync(downloadedPath, newPath);
+                                    //     logger.info(`Renamed downloaded PDF from ${mostRecentPdf} to ${pdfFileName}`);
+                                    // }
 
                                     logger.info(`Invoice PDF for month ${mes} downloaded successfully: ${newPath}`);
-                                    resolveMonth(newPath);
+                                    resolveMonth(downloadedPath);
                                     return;
                                 }
 
