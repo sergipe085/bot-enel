@@ -88,7 +88,7 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
 
     // Gerar UUIDs para os nomes dos arquivos
     const fileUuids = mesesReferencia.map(() => uuidv4());
-    const pdfFileNames = fileUuids.map(uuid => `${numeroCliente}_${cpfCnpj}_${uuid}.pdf`);
+    const pdfFileNames = fileUuids.map(uuid => `${uuid}.pdf`);
     logger.info(`Generated PDF filenames: ${pdfFileNames.join(', ')}`);
 
     // Gerar um ID de sessão único para esta execução (para organizar screenshots)
@@ -675,7 +675,6 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
 
                                     const downloadedPath = path.join(downloadPath, mostRecentPdf);
                                     const newPath = path.join(downloadPath, pdfFileName);
-
 
                                     console.log({
                                         downloadedPath,
