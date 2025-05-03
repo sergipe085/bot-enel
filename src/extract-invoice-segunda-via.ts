@@ -682,13 +682,13 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
                                     })
 
                                     // Renomear o arquivo para o nome UUID
-                                    // if (downloadedPath !== newPath) {
-                                    //     fs.renameSync(downloadedPath, newPath);
-                                    //     logger.info(`Renamed downloaded PDF from ${mostRecentPdf} to ${pdfFileName}`);
-                                    // }
+                                    if (downloadedPath !== newPath) {
+                                        fs.renameSync(downloadedPath, newPath);
+                                        logger.info(`Renamed downloaded PDF from ${mostRecentPdf} to ${pdfFileName}`);
+                                    }
 
                                     logger.info(`Invoice PDF for month ${mes} downloaded successfully: ${newPath}`);
-                                    resolveMonth(downloadedPath);
+                                    resolveMonth(newPath);
                                     return;
                                 }
 
