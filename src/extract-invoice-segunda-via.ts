@@ -663,6 +663,10 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
                                 const files = fs.readdirSync(downloadPath);
                                 const pdfFiles = files.filter(file => file.endsWith('.pdf') && !downloadedPdfs.includes(path.join(downloadPath, file)));
 
+                                console.log({
+                                    pdfFiles
+                                });
+
                                 if (pdfFiles.length > 0) {
                                     // Pegar o arquivo PDF mais recente
                                     const mostRecentPdf = pdfFiles
