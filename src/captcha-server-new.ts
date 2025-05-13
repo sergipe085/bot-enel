@@ -306,8 +306,8 @@ export class CaptchaServer {
       // Set a timeout of 5 minutes
       setTimeout(() => {
         clearInterval(checkInterval);
-        reject(new Error('Captcha solving timed out after 5 minutes'));
-      }, 5 * 60 * 1000);
+        reject(new Error('Captcha solving timed out after 30 minutes'));
+      }, 30 * 60 * 1000);
     });
   }
 }
