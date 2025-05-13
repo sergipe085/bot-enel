@@ -267,8 +267,8 @@ export class CaptchaServer {
 
     // URL para exibição ao usuário (sempre usando localhost com a porta correta)
     const userVisibleUrl = process.env.RUNNING_IN_DOCKER === 'true'
-      ? `http://localhost:3007/solve/${id}`
-      : `http://localhost:${this.port}/solve/${id}`;
+      ? `http://193.203.182.11:3007/solve/${id}`
+      : `http://193.203.182.11:${this.port}/solve/${id}`;
 
     if (webhookUrl) {
       await webhookQueue.add('job-waiting-captcha', {
