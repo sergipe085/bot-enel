@@ -43,6 +43,7 @@ async function takeScreenshot(page: Page, sessionId: string, step: string, scree
 // Não importamos mais diretamente o waitForVerificationCode, pois agora usamos a fila
 import { v4 as uuidv4 } from 'uuid';
 import { waitForVerificationCode } from "./email-checker";
+import { webhookQueue } from "./queues/webhook-queue";
 
 // Constants
 const CAPTCHA_API_KEY = 'ca7f179fa037be3fd8d1587eaf57939e';
@@ -60,6 +61,8 @@ logger.info("Puppeteer setup complete");
 
 // Type definitions
 type ExtractInvoiceParams = {
+    jobId: string;
+    webhookUrl?: string;
     numeroCliente: string;
     cpfCnpj: string;
     mesReferencia: string | string[]
@@ -80,7 +83,7 @@ type InvoiceResult = {
  * @param {ExtractInvoiceParams} params - The extraction parameters
  * @returns {Promise<InvoiceResult>} The invoice data
  */
-export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesReferencia }: ExtractInvoiceParams): Promise<InvoiceResult> {
+export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroCliente, cpfCnpj, mesReferencia }: ExtractInvoiceParams): Promise<InvoiceResult> {
     // Converter mesReferencia para array se for uma string única
     const mesesReferencia = Array.isArray(mesReferencia) ? mesReferencia : [mesReferencia];
 
@@ -384,6 +387,18 @@ export async function extractInvoiceSegundaVia({ numeroCliente, cpfCnpj, mesRefe
 
                         logger.info(`Please open ${captchaServerUrl}/pending in your browser to solve the captcha`);
                         logger.info(`The site key being used is: ${hcaptchaSiteKey}`);
+
+                        if (webhookUrl) {
+                            await webhookQueue.add('job-waiting-captcha', {
+                                url: webhookUrl,
+                                payload: {
+                                    id: jobId,
+                                    status: 'waiting-captcha',
+                                    message: 'Waiting for human to solve captcha'
+                                }
+                            });
+                        }
+
 
                         try {
                             const token = await captchaServer.submitCaptcha(

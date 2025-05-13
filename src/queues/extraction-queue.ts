@@ -55,6 +55,8 @@ export const extractionWorker = new Worker<ExtractionJobData, ExtractionJobResul
       await job.updateProgress(20);
 
       const result = await extractInvoiceSegundaVia({
+        jobId: id,
+        webhookUrl,
         numeroCliente,
         cpfCnpj,
         mesReferencia
