@@ -3,6 +3,7 @@ import { Server } from 'http';
 import path from 'path';
 import { logger } from './lib/logger';
 import * as fs from 'fs';
+import { webhookQueue } from './queues/webhook-queue';
 
 interface CaptchaRequest {
   id: string;
@@ -246,7 +247,7 @@ export class CaptchaServer {
    * @param url The URL where the captcha is located
    * @returns Promise with the solved captcha token
    */
-  public async submitCaptcha(siteKey: string, url: string): Promise<string> {
+  public async submitCaptcha(siteKey: string, url: string, webhookUrl?: string, jobId?: string): Promise<string> {
     // Determinar o host correto baseado no ambiente
     const baseUrl = process.env.RUNNING_IN_DOCKER === 'true'
       ? 'http://captcha-server:3000'
@@ -268,6 +269,18 @@ export class CaptchaServer {
     const userVisibleUrl = process.env.RUNNING_IN_DOCKER === 'true'
       ? `http://localhost:3007/solve/${id}`
       : `http://localhost:${this.port}/solve/${id}`;
+
+    if (webhookUrl) {
+      await webhookQueue.add('job-waiting-captcha', {
+        url: webhookUrl,
+        payload: {
+          id: jobId,
+          status: 'waiting-captcha',
+          message: 'Waiting for human to solve captcha',
+          url: userVisibleUrl
+        }
+      });
+    }
 
     logger.info(`Submitted captcha request ${id}, waiting for human to solve at ${userVisibleUrl}`);
 

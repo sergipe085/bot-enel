@@ -388,22 +388,24 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
                         logger.info(`Please open ${captchaServerUrl}/pending in your browser to solve the captcha`);
                         logger.info(`The site key being used is: ${hcaptchaSiteKey}`);
 
-                        if (webhookUrl) {
-                            await webhookQueue.add('job-waiting-captcha', {
-                                url: webhookUrl,
-                                payload: {
-                                    id: jobId,
-                                    status: 'waiting-captcha',
-                                    message: 'Waiting for human to solve captcha'
-                                }
-                            });
-                        }
+                        // if (webhookUrl) {
+                        //     await webhookQueue.add('job-waiting-captcha', {
+                        //         url: webhookUrl,
+                        //         payload: {
+                        //             id: jobId,
+                        //             status: 'waiting-captcha',
+                        //             message: 'Waiting for human to solve captcha'
+                        //         }
+                        //     });
+                        // }
 
 
                         try {
                             const token = await captchaServer.submitCaptcha(
                                 hcaptchaSiteKey,
-                                page.url()
+                                page.url(),
+                                webhookUrl,
+                                jobId
                             );
 
                             logger.info("Captcha solved by human! Applying token...");
