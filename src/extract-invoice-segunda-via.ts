@@ -646,7 +646,7 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
 
                             if (!found) {
                                 logger.warn(`Invoice for month ${mes} not found`);
-                                rejectMonth(`Invoice for month ${mes} not found`);
+                                resolveMonth("");
                                 return;
                             }
 
@@ -660,7 +660,7 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
                                 logger.info(`Clicked download button for month ${mes}`);
                             } else {
                                 logger.warn("Download button not found");
-                                rejectMonth(new Error("Download button not found"));
+                                resolveMonth("");
                                 return;
                             }
 
@@ -742,7 +742,7 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
                             setTimeout(checkFileExists, 2000);
                         } catch (error: any) {
                             logger.error(`Error downloading PDF for month ${mes}:`, error);
-                            rejectMonth(error.message);
+                            resolveMonth("");
                         }
                     });
                 };
