@@ -430,12 +430,15 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
                             logger.info("Captcha token applied successfully");
                         } catch (captchaError) {
                             logger.error("Error getting captcha solution:", captchaError);
+                            throw captchaError;
                         }
                     } else {
                         logger.warn("Could not find hCaptcha site key on the page");
+                        throw new Error("Could not find hCaptcha site key on the page")
                     }
                 } catch (captchaError) {
                     logger.error("Error handling captcha:", captchaError);
+                    throw captchaError;
                 }
 
                 await new Promise((resolve) => setTimeout(resolve, 1000));
