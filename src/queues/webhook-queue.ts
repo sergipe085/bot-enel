@@ -64,7 +64,7 @@ export const webhookWorker = new Worker<WebhookJobData, WebhookJobResult>(
   },
   {
     connection: defaultQueueConfig.connection,
-    concurrency: 5
+    concurrency: 100
   }
 );
 
