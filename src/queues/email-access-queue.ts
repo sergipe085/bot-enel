@@ -1,6 +1,6 @@
 import { logger } from '../lib/logger';
 import { redisConnection } from '../lib/redis';
-import { waitForVerificationCode } from '../email-checker';
+import { waitForEmailVerificationCode } from '../email-checker';
 import { v4 as uuidv4 } from 'uuid';
 
 // Chave para o lock no Redis
@@ -57,7 +57,7 @@ export async function requestVerificationCode(requestId: string): Promise<string
 
     try {
       // Esperar pelo código de verificação
-      const verificationCode = await waitForVerificationCode(1000 * 60 * 10); // Esperar até 10 minutos
+      const verificationCode = await waitForEmailVerificationCode(1000 * 60 * 10); // Esperar até 10 minutos
 
       if (!verificationCode) {
         logger.error(`Request ${requestId} failed to receive verification code within timeout`);

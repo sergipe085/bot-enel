@@ -40,10 +40,9 @@ async function takeScreenshot(page: Page, sessionId: string, step: string, scree
         return '';
     }
 }
-// Não importamos mais diretamente o waitForVerificationCode, pois agora usamos a fila
+// Importamos o centralizador de verificação
 import { v4 as uuidv4 } from 'uuid';
-import { waitForEmailVerificationCode } from "./email-checker";
-import { waitForPhoneVerificationCode } from "./phone-checker";
+import { handleVerificationCodeUI, VerificationMethod } from "./verification-code-handler";
 import { webhookQueue } from "./queues/webhook-queue";
 
 // Constants
@@ -483,159 +482,28 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
 
                 const { checkPhoneLockAvailability, acquirePhoneLock } = await import('./queues/phone-access-queue');
 
-                const phoneInput = await page.$('input[value*="569"]');
+                // Usar o centralizador de verificação de código para lidar com ambos os métodos (telefone e email)
+                logger.info("Using centralized verification code handler...");
 
-                if (phoneInput) {
-                    await phoneInput.click();
+                // Usar o método handleVerificationCodeUI que gerencia toda a interação com a página
+                // e escolhe automaticamente entre telefone e email com base na disponibilidade
+                const verificationCode = await handleVerificationCodeUI(
+                    page,
+                    VerificationMethod.ANY, // Tentar qualquer método disponível
+                    jobId,
+                    screenshotPath,
+                    sessionId,
+                    takeScreenshot
+                );
 
-                    // pega o id do input
-                    const id = await phoneInput.evaluate(el => el.id);
-
-                    // extrai o número do final do id
-                    const match = id.match(/\d+$/);
-
-                    if (match) {
-                        const num = match[0];
-
-                        // monta o seletor do outro input
-                        const rdPhoneSelector = `#CONTENT_Formulario_RdTelefone${num}`;
-
-                        // espera o outro input aparecer
-                        await page.waitForSelector(rdPhoneSelector);
-
-                        // pega o handle do outro input
-                        const rdPhoneInput = await page.$(rdPhoneSelector);
-
-                        if (rdPhoneInput) {
-                            console.log('Achei o segundo input!', rdPhoneSelector);
-
-                            await rdPhoneInput.click()
-                        }
-                    }
-                }
-
-                // const emailInput = await page.$('input[value^="co"][value*="@gmail.com"]');
-
-                // if (emailInput) {
-                //     await emailInput.click();
-
-                //     // pega o id do input
-                //     const id = await emailInput.evaluate(el => el.id);
-
-                //     // extrai o número do final do id
-                //     const match = id.match(/\d+$/);
-
-                //     if (match) {
-                //         const num = match[0];
-
-                //         // monta o seletor do outro input
-                //         const rdEmailSelector = `#CONTENT_Formulario_RdEmail${num}`;
-
-                //         // espera o outro input aparecer
-                //         await page.waitForSelector(rdEmailSelector);
-
-                //         // pega o handle do outro input
-                //         const rdEmailInput = await page.$(rdEmailSelector);
-
-                //         if (rdEmailInput) {
-                //             console.log('Achei o segundo input!', rdEmailSelector);
-
-                //             await rdEmailInput.click()
-                //         }
-                //     }
-                // }
-
-                await new Promise((resolve) => setTimeout(resolve, 1000));
-                await takeScreenshot(page, sessionId, '13_depois_de_clicar_no_email', screenshotPath);
-
-                const codeRequestId = jobId;
-
-                // Verificar se o lock do email está disponível antes de clicar no botão
-                logger.info(`Checking phone lock availability before requesting code...`);
-                const isLockAvailable = await checkPhoneLockAvailability();
-
-                if (!isLockAvailable) {
-                    logger.info(`Phone lock is not available, waiting for it to be released...`);
-                    await acquirePhoneLock(codeRequestId, true); // true = aguardar até que o lock esteja disponível
-                }
-                await takeScreenshot(page, sessionId, '14_depois_de_clicar_no_email', screenshotPath);
-
-                await new Promise((resolve) => setTimeout(resolve, 5000));
-                await takeScreenshot(page, sessionId, '15_depois_5_segundos', screenshotPath);
-
-
-
-
-                // Gerar um ID único para este pedido de código
-                // const codeRequestId = `code-request-${uuidv4()}`;
-
-                // // Verificar se o lock do email está disponível antes de clicar no botão
-                // logger.info(`Checking email lock availability before requesting code...`);
-                // const isLockAvailable = await checkEmailLockAvailability();
-
-                // if (!isLockAvailable) {
-                //     logger.info(`Email lock is not available, waiting for it to be released...`);
-                //     await acquireEmailLock(codeRequestId, true); // true = aguardar até que o lock esteja disponível
-                // }
-                // await takeScreenshot(page, sessionId, '14_depois_de_clicar_no_email', screenshotPath);
-
-                // await new Promise((resolve) => setTimeout(resolve, 5000));
-                // await takeScreenshot(page, sessionId, '15_depois_5_segundos', screenshotPath);
-
-                // Agora que temos o lock (ou ele já estava disponível), podemos clicar no botão
-                const submitEmailCodeButton = await page.$("#CONTENT_Formulario_EnviarSt2");
-                if (submitEmailCodeButton) {
-                    // Adquirir o lock antes de clicar no botão (se ainda não o fizemos)
-                    if (isLockAvailable) {
-                        await acquirePhoneLock(codeRequestId, false); // false = não aguardar se não estiver disponível
-                    }
-
-                    await submitEmailCodeButton.click();
-                    logger.info("Clicked submit email code button");
-                } else {
-                    // Se não encontramos o botão, liberar o lock que adquirimos
-                    const { releasePhoneAccess } = await import('./queues/phone-access-queue');
-                    await releasePhoneAccess(codeRequestId);
-                    throw new Error("Could not find submit email code button");
-                }
-                await takeScreenshot(page, sessionId, '16_depois_de_clicar_no_email', screenshotPath);
-
-                await new Promise((resolve) => setTimeout(resolve, 5000));
-                await takeScreenshot(page, sessionId, '17_depois_5_segundos', screenshotPath);
-
-                const continueButton = await page.$("#CONTENT_Formulario_ContinuarSt3");
-                if (continueButton) {
-                    await continueButton.click();
-                    logger.info("Clicked continue button");
-                }
-                await takeScreenshot(page, sessionId, '18_depois_de_clicar_no_continuar', screenshotPath);
-
-                await new Promise((resolve) => setTimeout(resolve, 5000));
-                await takeScreenshot(page, sessionId, '19_depois_5_segundos', screenshotPath);
-
-                // Solicitar código de verificação diretamente
-                logger.info("Waiting for verification code email...");
-
-                // Importamos dinamicamente para evitar dependência circular
-                const { releasePhoneAccess } = await import('./queues/phone-access-queue');
-
-                // Aguardar pelo código de verificação (já temos o lock)
-                const verificationCode = await waitForVerificationCodePhone(codeRequestId); // Esperar até 10 minutos
-
-                // Preencher o código no formulário
+                // Preencher o código no formulário se foi obtido com sucesso
                 const verificationCodeInput = await page.$("#CONTENT_Formulario_CodigoSeguranca");
                 if (verificationCodeInput && verificationCode) {
                     await verificationCodeInput.click();
                     await verificationCodeInput.type(verificationCode, { delay: 200 });
-
-                    // Liberar o acesso ao email após usar o código
-                    await releasePhoneAccess(codeRequestId);
-                } else {
-                    // Se não conseguiu o código, ainda assim liberar o acesso
-                    await releasePhoneAccess(codeRequestId);
-                    if (!verificationCode) {
-                        throw new Error("Failed to get verification code");
-                    }
+                    logger.info("Successfully entered verification code");
+                } else if (!verificationCode) {
+                    throw new Error("Failed to get verification code from any method");
                 }
 
                 await takeScreenshot(page, sessionId, '20_codigo_email_escrito', screenshotPath);

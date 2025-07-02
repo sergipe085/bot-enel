@@ -5,7 +5,7 @@ import { decryptBase64PdfWithQpdf } from "./utils";
 import { extractInvoiceSegundaVia } from "./extract-invoice-segunda-via";
 import { addExtractionJob, extractionQueue } from "./queues/extraction-queue";
 import { redisConnection } from "./lib/redis";
-import { getPhoneCodeKey } from "./phone-checker";
+import { PHONE_CODE_KEY } from "./phone-checker";
 
 export const app = express();
 
@@ -165,15 +165,14 @@ app.get("/job-status/:jobId", async (req: Request, res: Response) => {
 
 
 
-app.post("/set-phone-code", async (req, res) => {
+app.post("/set-sms-code", async (req, res) => {
     const schema = z.object({
-        requestId: z.string(),
         code: z.string()
     })
 
     try {
-        const { requestId, code } = schema.parse(req.body);
-        await redisConnection.set(getPhoneCodeKey(requestId), code);
+        const { code } = schema.parse(req.body);
+        await redisConnection.set(PHONE_CODE_KEY, code);
         res.json({ success: true });
     } catch (error) {
         res.status(400).json({

@@ -1,10 +1,10 @@
 import { logger } from '../lib/logger';
 import { redisConnection } from '../lib/redis';
-import { waitForVerificationCode } from '../phone-checker';
+import { waitForPhoneVerificationCode } from '../phone-checker';
 import { v4 as uuidv4 } from 'uuid';
 
 // Chave para o lock no Redis
-const PHONE_LOCK_KEY = 'enel:phone:lock:new5';
+export const PHONE_LOCK_KEY = 'enel:phone:lock:new8';
 
 /**
  * Solicita um código de verificação, garantindo acesso exclusivo ao email
@@ -57,7 +57,7 @@ export async function requestPhoneVerificationCode(requestId: string): Promise<s
 
     try {
       // Esperar pelo código de verificação
-      const verificationCode = await waitForVerificationCode(requestId); // Esperar até 10 minutos
+      const verificationCode = await waitForPhoneVerificationCode(); // Esperar até 10 minutos
 
       if (!verificationCode) {
         logger.error(`Request ${requestId} failed to receive verification code within timeout`);

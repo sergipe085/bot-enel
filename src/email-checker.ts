@@ -25,7 +25,7 @@ const EMAIL_CONFIG = {
  */
 export async function getVerificationCodeFromEmail(
     searchCriteria: string = 'UNSEEN',
-    maxWaitTimeMs: number = 60000,
+    maxWaitTimeMs: number = 60 * 1000 * 10, // 10 minutes
     codeRegex: RegExp = /Seu c&oacute;digo de valida&ccedil;&atilde;o &eacute;:[\s\S]*?<span[^>]*>[\s\S]*?([0-9]+)[\s\S]*?<\/span>/,
     sinceDate?: Date
 ): Promise<string | null> {
