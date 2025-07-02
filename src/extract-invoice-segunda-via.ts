@@ -42,7 +42,8 @@ async function takeScreenshot(page: Page, sessionId: string, step: string, scree
 }
 // Não importamos mais diretamente o waitForVerificationCode, pois agora usamos a fila
 import { v4 as uuidv4 } from 'uuid';
-import { waitForVerificationCode } from "./email-checker";
+import { waitForEmailVerificationCode } from "./email-checker";
+import { waitForPhoneVerificationCode } from "./phone-checker";
 import { webhookQueue } from "./queues/webhook-queue";
 
 // Constants
@@ -477,13 +478,18 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
                     return;
                 }
 
-                const emailInput = await page.$('input[value^="co"][value*="@gmail.com"]');
+                // Importamos dinamicamente para evitar dependência circular
+                const { checkEmailLockAvailability, acquireEmailLock } = await import('./queues/email-access-queue');
 
-                if (emailInput) {
-                    await emailInput.click();
+                const { checkPhoneLockAvailability, acquirePhoneLock } = await import('./queues/phone-access-queue');
+
+                const phoneInput = await page.$('input[value*="569"]');
+
+                if (phoneInput) {
+                    await phoneInput.click();
 
                     // pega o id do input
-                    const id = await emailInput.evaluate(el => el.id);
+                    const id = await phoneInput.evaluate(el => el.id);
 
                     // extrai o número do final do id
                     const match = id.match(/\d+$/);
@@ -492,58 +498,104 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
                         const num = match[0];
 
                         // monta o seletor do outro input
-                        const rdEmailSelector = `#CONTENT_Formulario_RdEmail${num}`;
+                        const rdPhoneSelector = `#CONTENT_Formulario_RdTelefone${num}`;
 
                         // espera o outro input aparecer
-                        await page.waitForSelector(rdEmailSelector);
+                        await page.waitForSelector(rdPhoneSelector);
 
                         // pega o handle do outro input
-                        const rdEmailInput = await page.$(rdEmailSelector);
+                        const rdPhoneInput = await page.$(rdPhoneSelector);
 
-                        if (rdEmailInput) {
-                            console.log('Achei o segundo input!', rdEmailSelector);
+                        if (rdPhoneInput) {
+                            console.log('Achei o segundo input!', rdPhoneSelector);
 
-                            await rdEmailInput.click()
+                            await rdPhoneInput.click()
                         }
                     }
                 }
 
+                // const emailInput = await page.$('input[value^="co"][value*="@gmail.com"]');
+
+                // if (emailInput) {
+                //     await emailInput.click();
+
+                //     // pega o id do input
+                //     const id = await emailInput.evaluate(el => el.id);
+
+                //     // extrai o número do final do id
+                //     const match = id.match(/\d+$/);
+
+                //     if (match) {
+                //         const num = match[0];
+
+                //         // monta o seletor do outro input
+                //         const rdEmailSelector = `#CONTENT_Formulario_RdEmail${num}`;
+
+                //         // espera o outro input aparecer
+                //         await page.waitForSelector(rdEmailSelector);
+
+                //         // pega o handle do outro input
+                //         const rdEmailInput = await page.$(rdEmailSelector);
+
+                //         if (rdEmailInput) {
+                //             console.log('Achei o segundo input!', rdEmailSelector);
+
+                //             await rdEmailInput.click()
+                //         }
+                //     }
+                // }
+
                 await new Promise((resolve) => setTimeout(resolve, 1000));
                 await takeScreenshot(page, sessionId, '13_depois_de_clicar_no_email', screenshotPath);
 
-                // Importamos dinamicamente para evitar dependência circular
-                const { checkEmailLockAvailability, acquireEmailLock } = await import('./queues/email-access-queue');
-
-                // Gerar um ID único para este pedido de código
-                const codeRequestId = `code-request-${uuidv4()}`;
+                const codeRequestId = jobId;
 
                 // Verificar se o lock do email está disponível antes de clicar no botão
-                logger.info(`Checking email lock availability before requesting code...`);
-                const isLockAvailable = await checkEmailLockAvailability();
+                logger.info(`Checking phone lock availability before requesting code...`);
+                const isLockAvailable = await checkPhoneLockAvailability();
 
                 if (!isLockAvailable) {
-                    logger.info(`Email lock is not available, waiting for it to be released...`);
-                    await acquireEmailLock(codeRequestId, true); // true = aguardar até que o lock esteja disponível
+                    logger.info(`Phone lock is not available, waiting for it to be released...`);
+                    await acquirePhoneLock(codeRequestId, true); // true = aguardar até que o lock esteja disponível
                 }
                 await takeScreenshot(page, sessionId, '14_depois_de_clicar_no_email', screenshotPath);
 
                 await new Promise((resolve) => setTimeout(resolve, 5000));
                 await takeScreenshot(page, sessionId, '15_depois_5_segundos', screenshotPath);
 
+
+
+
+                // Gerar um ID único para este pedido de código
+                // const codeRequestId = `code-request-${uuidv4()}`;
+
+                // // Verificar se o lock do email está disponível antes de clicar no botão
+                // logger.info(`Checking email lock availability before requesting code...`);
+                // const isLockAvailable = await checkEmailLockAvailability();
+
+                // if (!isLockAvailable) {
+                //     logger.info(`Email lock is not available, waiting for it to be released...`);
+                //     await acquireEmailLock(codeRequestId, true); // true = aguardar até que o lock esteja disponível
+                // }
+                // await takeScreenshot(page, sessionId, '14_depois_de_clicar_no_email', screenshotPath);
+
+                // await new Promise((resolve) => setTimeout(resolve, 5000));
+                // await takeScreenshot(page, sessionId, '15_depois_5_segundos', screenshotPath);
+
                 // Agora que temos o lock (ou ele já estava disponível), podemos clicar no botão
                 const submitEmailCodeButton = await page.$("#CONTENT_Formulario_EnviarSt2");
                 if (submitEmailCodeButton) {
                     // Adquirir o lock antes de clicar no botão (se ainda não o fizemos)
                     if (isLockAvailable) {
-                        await acquireEmailLock(codeRequestId, false); // false = não aguardar se não estiver disponível
+                        await acquirePhoneLock(codeRequestId, false); // false = não aguardar se não estiver disponível
                     }
 
                     await submitEmailCodeButton.click();
                     logger.info("Clicked submit email code button");
                 } else {
                     // Se não encontramos o botão, liberar o lock que adquirimos
-                    const { releaseEmailAccess } = await import('./queues/email-access-queue');
-                    await releaseEmailAccess(codeRequestId);
+                    const { releasePhoneAccess } = await import('./queues/phone-access-queue');
+                    await releasePhoneAccess(codeRequestId);
                     throw new Error("Could not find submit email code button");
                 }
                 await takeScreenshot(page, sessionId, '16_depois_de_clicar_no_email', screenshotPath);
@@ -565,10 +617,10 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
                 logger.info("Waiting for verification code email...");
 
                 // Importamos dinamicamente para evitar dependência circular
-                const { releaseEmailAccess } = await import('./queues/email-access-queue');
+                const { releasePhoneAccess } = await import('./queues/phone-access-queue');
 
                 // Aguardar pelo código de verificação (já temos o lock)
-                const verificationCode = await waitForVerificationCode(1000 * 60 * 10); // Esperar até 10 minutos
+                const verificationCode = await waitForVerificationCodePhone(codeRequestId); // Esperar até 10 minutos
 
                 // Preencher o código no formulário
                 const verificationCodeInput = await page.$("#CONTENT_Formulario_CodigoSeguranca");
@@ -577,10 +629,10 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
                     await verificationCodeInput.type(verificationCode, { delay: 200 });
 
                     // Liberar o acesso ao email após usar o código
-                    await releaseEmailAccess(codeRequestId);
+                    await releasePhoneAccess(codeRequestId);
                 } else {
                     // Se não conseguiu o código, ainda assim liberar o acesso
-                    await releaseEmailAccess(codeRequestId);
+                    await releasePhoneAccess(codeRequestId);
                     if (!verificationCode) {
                         throw new Error("Failed to get verification code");
                     }
@@ -836,7 +888,7 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
                 logger.error(`Error during extraction:`, error);
                 reject(error);
             } finally {
-                await browser.close();
+                // await browser.close();
                 logger.info(`Browser closed`);
             }
         }).catch(error => {

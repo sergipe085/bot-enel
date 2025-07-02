@@ -1,0 +1,17 @@
+meta {
+  name: set-phone-code
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{url}}/set-phone-code
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "requestId": "2b33d841-ed8f-41b3-9536-79cbbe5ddb6f"
+  }
+}

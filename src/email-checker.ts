@@ -120,7 +120,7 @@ export async function getVerificationCodeFromEmail(
  * @param timeoutMs - Maximum time to wait for the email in milliseconds
  * @returns The verification code if found, null otherwise
  */
-export async function waitForVerificationCode(timeoutMs: number = 120000): Promise<string | null> {
+export async function waitForEmailVerificationCode(timeoutMs: number = 120000): Promise<string | null> {
     logger.info(`Waiting for verification code email (timeout: ${timeoutMs}ms)...`);
 
     // Search for unread emails - use simple UNSEEN criteria

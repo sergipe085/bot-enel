@@ -1,9 +1,11 @@
-import express from "express";
+import express, { Request, Response } from "express";
 import { extractInvoice } from ".";
 import { z } from "zod";
 import { decryptBase64PdfWithQpdf } from "./utils";
 import { extractInvoiceSegundaVia } from "./extract-invoice-segunda-via";
 import { addExtractionJob, extractionQueue } from "./queues/extraction-queue";
+import { redisConnection } from "./lib/redis";
+import { getPhoneCodeKey } from "./phone-checker";
 
 export const app = express();
 
@@ -76,7 +78,7 @@ app.post("/extract-via-segunda-via", async (req, res) => {
     }
 });
 
-app.get("/job-status/:jobId", async (req, res) => {
+app.get("/job-status/:jobId", async (req: Request, res: Response) => {
     try {
         const { jobId } = req.params;
 
@@ -157,6 +159,26 @@ app.get("/job-status/:jobId", async (req, res) => {
         return res.status(500).json({
             success: false,
             error: error.message || 'Error retrieving job status'
+        });
+    }
+});
+
+
+
+app.post("/set-phone-code", async (req, res) => {
+    const schema = z.object({
+        requestId: z.string(),
+        code: z.string()
+    })
+
+    try {
+        const { requestId, code } = schema.parse(req.body);
+        await redisConnection.set(getPhoneCodeKey(requestId), code);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(400).json({
+            success: false,
+            error: error.message || 'Invalid request parameters'
         });
     }
 });
