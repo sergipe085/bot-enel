@@ -293,6 +293,19 @@ export class CaptchaServer {
 
           if (statusData.status === 'solved' && statusData.token) {
             clearInterval(checkInterval);
+
+
+            if (webhookUrl) {
+              await webhookQueue.add('job-captcha-solved', {
+                url: webhookUrl,
+                payload: {
+                  id: jobId,
+                  status: 'captcha-solved',
+                  message: 'Captcha solved',
+                  url: userVisibleUrl
+                }
+              });
+            }
             resolve(statusData.token);
           } else if (statusData.status === 'timeout') {
             clearInterval(checkInterval);
