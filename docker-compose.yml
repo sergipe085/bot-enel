@@ -11,7 +11,7 @@ services:
       - .:/app
       - /app/node_modules
       - ./screenshots:/app/screenshots
-    command: ["/app/start-xvfb.sh", "pnpm", "start"]
+    command: ["/app/start-xvfb.sh", "node", "dist/server.js"]
     environment:
       - PORT=3006
       - NODE_ENV=development
@@ -35,7 +35,8 @@ services:
       - .:/app
       - /app/node_modules
       - ./screenshots:/app/screenshots
-    command: pnpm exec tsx src/start-captcha-server.ts
+    # command: pnpm exec tsx src/start-captcha-server.ts
+    command: ["node", "dist/start-captcha-server.js"]
     environment:
       - NODE_ENV=development
       - REDIS_HOST=redis
