@@ -8,8 +8,9 @@ services:
     ports:
       - "3006:3006"
     volumes:
-      - .:/app
+      # - .:/app
       - /app/node_modules
+      - /app/dist
       - ./screenshots:/app/screenshots
     command: ["/app/start-xvfb.sh", "node", "dist/server.js"]
     environment:
@@ -32,8 +33,9 @@ services:
     ports:
       - "3007:3000"
     volumes:
-      - .:/app
+      # - .:/app
       - /app/node_modules
+      - /app/dist
       - ./screenshots:/app/screenshots
     # command: pnpm exec tsx src/start-captcha-server.ts
     command: ["node", "dist/start-captcha-server.js"]
