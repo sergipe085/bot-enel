@@ -78,90 +78,90 @@ app.post("/extract-via-segunda-via", async (req, res) => {
     }
 });
 
-app.get("/job-status/:jobId", async (req: Request, res: Response) => {
-    try {
-        const { jobId } = req.params;
+// app.get("/job-status/:jobId", async (req: Request, res: Response) => {
+//     try {
+//         const { jobId } = req.params;
 
-        // Buscar o job na fila
-        const job = await extractionQueue.getJob(jobId);
+//         // Buscar o job na fila
+//         const job = await extractionQueue.getJob(jobId);
 
-        if (!job) {
-            return res.status(404).json({
-                success: false,
-                error: 'Job not found'
-            });
-        }
+//         if (!job) {
+//             return res.status(404).json({
+//                 success: false,
+//                 error: 'Job not found'
+//             });
+//         }
 
-        // Obter o estado atual do job
-        const state = await job.getState();
-        const progress = job.progress || 0;
-        const result = job.returnvalue;
-        const failReason = job.failedReason;
+//         // Obter o estado atual do job
+//         const state = await job.getState();
+//         const progress = job.progress || 0;
+//         const result = job.returnvalue;
+//         const failReason = job.failedReason;
 
-        let status;
-        switch (state) {
-            case 'completed':
-                status = 'completed';
-                break;
-            case 'failed':
-                status = 'failed';
-                break;
-            case 'delayed':
-            case 'waiting':
-                status = 'queued';
-                break;
-            case 'active':
-                status = 'processing';
-                break;
-            default:
-                status = state;
-        }
+//         let status;
+//         switch (state) {
+//             case 'completed':
+//                 status = 'completed';
+//                 break;
+//             case 'failed':
+//                 status = 'failed';
+//                 break;
+//             case 'delayed':
+//             case 'waiting':
+//                 status = 'queued';
+//                 break;
+//             case 'active':
+//                 status = 'processing';
+//                 break;
+//             default:
+//                 status = state;
+//         }
 
-        // Construir a resposta
-        const response: any = {
-            jobId,
-            status,
-            progress
-        };
+//         // Construir a resposta
+//         const response: any = {
+//             jobId,
+//             status,
+//             progress
+//         };
 
-        // Adicionar resultado se o job estiver completo
-        if (status === 'completed' && result) {
-            // Se temos PDFs para processar
-            if (result.pdfs && result.pdfs.length > 0) {
-                const primeiros5DigitosCnpj = req.query.cpfCnpj ? String(req.query.cpfCnpj).slice(0, 5) : null;
+//         // Adicionar resultado se o job estiver completo
+//         if (status === 'completed' && result) {
+//             // Se temos PDFs para processar
+//             if (result.pdfs && result.pdfs.length > 0) {
+//                 const primeiros5DigitosCnpj = req.query.cpfCnpj ? String(req.query.cpfCnpj).slice(0, 5) : null;
 
-                if (primeiros5DigitosCnpj && req.query.decrypt === 'true') {
-                    // Processar cada PDF para descriptografar
-                    const decryptedPdfs = await Promise.all(
-                        result.pdfs.map(async (pdfResult) => {
-                            const decryptedContent = await decryptBase64PdfWithQpdf(pdfResult.base64Content, primeiros5DigitosCnpj);
-                            return {
-                                ...pdfResult,
-                                base64Content: decryptedContent
-                            };
-                        })
-                    );
+//                 if (primeiros5DigitosCnpj && req.query.decrypt === 'true') {
+//                     // Processar cada PDF para descriptografar
+//                     const decryptedPdfs = await Promise.all(
+//                         result.pdfs.map(async (pdfResult) => {
+//                             const decryptedContent = await decryptBase64PdfWithQpdf(pdfResult.base64Content, primeiros5DigitosCnpj);
+//                             return {
+//                                 ...pdfResult,
+//                                 base64Content: decryptedContent
+//                             };
+//                         })
+//                     );
 
-                    response.pdfs = decryptedPdfs;
-                } else {
-                    response.pdfs = result.pdfs;
-                }
-            }
-        }
+//                     response.pdfs = decryptedPdfs;
+//                 } else {
+//                     response.pdfs = result.pdfs;
+//                 }
+//             }
+//         }
 
-        // Adicionar mensagem de erro se o job falhou
-        if (status === 'failed') {
-            response.error = failReason || 'Unknown error';
-        }
+//         // Adicionar mensagem de erro se o job falhou
+//         if (status === 'failed') {
+//             response.error = failReason || 'Unknown error';
+//         }
 
-        return res.json(response);
-    } catch (error) {
-        return res.status(500).json({
-            success: false,
-            error: error.message || 'Error retrieving job status'
-        });
-    }
-});
+//         return res.json(response);
+//     } catch (error) {
+//         return res.status(500).json({
+//             success: false,
+//             error: error.message || 'Error retrieving job status'
+//         });
+//     }
+// });
 
 
 

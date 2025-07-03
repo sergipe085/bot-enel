@@ -7,41 +7,6 @@ import { v4 as uuidv4 } from 'uuid';
 
 const execPromise = promisify(exec);
 
-// Pure TypeScript solution using pdf-lib
-async function decryptBase64PdfWithPdfLib(base64Input: string, password: string): Promise<string> {
-    try {
-        // Step 1: Decode the base64 input to binary PDF data
-        const pdfBytes = Buffer.from(base64Input, 'base64');
-
-        // Step 2: Load the encrypted PDF with password
-        const loadOptions: { password?: string } = {};
-        if (password) {
-            loadOptions.password = password;
-        }
-
-        const encryptedPdfDoc = await PDFDocument.load(pdfBytes, loadOptions);
-
-        // Step 3: Create a new PDF document
-        const newPdfDoc = await PDFDocument.create();
-
-        // Step 4: Copy all pages from encrypted document to new document
-        const pageIndices = encryptedPdfDoc.getPageIndices();
-        const pages = await newPdfDoc.copyPages(encryptedPdfDoc, pageIndices);
-        pages.forEach(page => newPdfDoc.addPage(page));
-
-        // Step 5: Save the new unprotected PDF
-        const unprotectedPdfBytes = await newPdfDoc.save();
-
-        // Step 6: Convert to base64
-        const base64String = Buffer.from(unprotectedPdfBytes).toString('base64');
-
-        return base64String;
-    } catch (error) {
-        console.error('Error processing PDF:', error);
-        throw error;
-    }
-}
-
 // Alternative approach using qpdf external tool
 export async function decryptBase64PdfWithQpdf(base64Input: string, password: string): Promise<string> {
     try {
