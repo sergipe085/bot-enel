@@ -457,25 +457,25 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
 
                 await takeScreenshot(page, sessionId, '12_depois_5_segundos', screenshotPath);
 
-                try {
-                    await page.waitForSelector('input[value^="co"][value*="@gmail.com"]');
-                } catch (error) {
-                    logger.error("Error waiting for email input:", error);
+                // try {
+                //     await page.waitForSelector('input[value^="co"][value*="@gmail.com"]');
+                // } catch (error) {
+                //     logger.error("Error waiting for email input:", error);
 
 
-                    if (webhookUrl) {
-                        await webhookQueue.add('job-error', {
-                            url: webhookUrl,
-                            payload: {
-                                id: jobId,
-                                status: 'email-not-found',
-                                message: 'Error waiting for email input',
-                            }
-                        });
-                    }
+                //     if (webhookUrl) {
+                //         await webhookQueue.add('job-error', {
+                //             url: webhookUrl,
+                //             payload: {
+                //                 id: jobId,
+                //                 status: 'email-not-found',
+                //                 message: 'Error waiting for email input',
+                //             }
+                //         });
+                //     }
 
-                    return;
-                }
+                //     return;
+                // }
 
                 // Importamos dinamicamente para evitar dependência circular
                 const { checkEmailLockAvailability, acquireEmailLock } = await import('./queues/email-access-queue');
