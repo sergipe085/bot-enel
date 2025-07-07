@@ -35,7 +35,8 @@ export async function getVerificationCodeFromEmail(
     let connection: ImapSimple | null = null;
 
     // Se sinceDate não for fornecido, use a hora atual como referência
-    const searchSinceDate = sinceDate || new Date();
+    // Subtrair 1 hora da data para garantir que não perca emails por diferenças de timezone
+    const searchSinceDate = sinceDate || new Date(Date.now() - 60 * 60 * 1000);
 
     try {
         connection = await connect({ imap: EMAIL_CONFIG });
@@ -50,11 +51,12 @@ export async function getVerificationCodeFromEmail(
             };
 
             // Formatar a data para o formato que o IMAP espera (DD-MMM-YYYY)
+            // Usar UTC para evitar problemas de timezone
             const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
             const formattedDate = [
-                searchSinceDate.getDate(),
-                months[searchSinceDate.getMonth()],
-                searchSinceDate.getFullYear()
+                searchSinceDate.getUTCDate(),
+                months[searchSinceDate.getUTCMonth()],
+                searchSinceDate.getUTCFullYear()
             ].join('-');
 
             // Criar critérios de busca: emails não vistos E recebidos após a data de início
@@ -116,6 +118,17 @@ export async function getVerificationCodeFromEmail(
 }
 
 /**
+ * Ajusta uma data para considerar o fuso horário de Fortaleza (UTC-3)
+ * @param date - A data a ser ajustada
+ * @returns A data ajustada com uma margem de segurança
+ */
+function adjustDateForTimezone(date: Date): Date {
+    // Subtrair 1 hora da data para garantir uma margem de segurança
+    // Isso evita problemas de diferenças de timezone entre o servidor e o serviço de email
+    return new Date(date.getTime() - 60 * 60 * 1000);
+}
+
+/**
  * Waits for a verification code to be received by email and returns it
  * @param timeoutMs - Maximum time to wait for the email in milliseconds
  * @returns The verification code if found, null otherwise
@@ -127,8 +140,9 @@ export async function waitForEmailVerificationCode(timeoutMs: number = 120000): 
     const searchCriteria = 'UNSEEN';
 
     // Use a data atual como ponto de referência para buscar apenas emails recebidos após iniciar a função
-    const startTime = new Date();
-    logger.info(`Will only check emails received after: ${startTime.toISOString()}`);
+    // Ajustar a data para considerar o fuso horário de Fortaleza e adicionar margem de segurança
+    const startTime = adjustDateForTimezone(new Date());
+    logger.info(`Will only check emails received after: ${startTime.toISOString()} (adjusted for timezone safety)`);
 
     return await getVerificationCodeFromEmail(searchCriteria, timeoutMs, undefined, startTime);
 }

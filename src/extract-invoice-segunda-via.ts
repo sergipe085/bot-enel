@@ -518,7 +518,7 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
 
                 await new Promise((resolve) => setTimeout(resolve, 15000));
 
-                await page.waitForSelector('#CONTENT_segviarapida_GridViewSegVia tbody tr');
+                await page.waitForSelector('#CONTENT_segviarapida_GridViewSegVia tbody tr', { timeout: 60 * 1000 * 2 });
                 await takeScreenshot(page, sessionId, '22_depois_15_segundos', screenshotPath);
 
 
