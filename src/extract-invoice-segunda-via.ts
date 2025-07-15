@@ -116,7 +116,7 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
         // Configuração do Puppeteer para funcionar tanto em ambiente local quanto em Docker
         const isDocker = process.env.RUNNING_IN_DOCKER === 'true';
         const puppeteerConfig = {
-            headless: true,
+            headless: false, // Usando false para ambos os ambientes para evitar detecção de bot
             args: [
                 `--disable-dev-shm-usage`,
                 `--disable-gpu`,
