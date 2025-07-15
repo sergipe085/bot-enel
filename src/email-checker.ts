@@ -144,5 +144,5 @@ export async function waitForEmailVerificationCode(timeoutMs: number = 120000): 
     const startTime = adjustDateForTimezone(new Date());
     logger.info(`Will only check emails received after: ${startTime.toISOString()} (adjusted for timezone safety)`);
 
-    return await getVerificationCodeFromEmail(searchCriteria, timeoutMs, undefined, startTime);
+    return await getVerificationCodeFromEmail(searchCriteria, undefined, undefined, startTime);
 }
