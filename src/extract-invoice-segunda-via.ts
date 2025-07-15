@@ -142,6 +142,7 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
                 DISPLAY: process.env.DISPLAY || ':99',
                 DBUS_SESSION_BUS_ADDRESS: process.env.DBUS_SESSION_BUS_ADDRESS || 'unix:path=/var/run/dbus/system_bus_socket'
             } : undefined,
+            timeout: 0,
         };
 
         logger.info(`Launching browser with config: ${JSON.stringify(puppeteerConfig)}`);

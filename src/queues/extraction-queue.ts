@@ -118,7 +118,7 @@ export const extractionWorker = new Worker<ExtractionJobData, ExtractionJobResul
   },
   {
     connection: defaultQueueConfig.connection,
-    concurrency: 100,
+    concurrency: 10,
   }
 );
 
