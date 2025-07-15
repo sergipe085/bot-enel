@@ -54,6 +54,10 @@ export const extractionWorker = new Worker<ExtractionJobData, ExtractionJobResul
 
       await job.updateProgress(20);
 
+      // Adicionamos uma pequena pausa entre jobs para garantir que não sobrecarregue o sistema
+      // Isso ajuda a evitar que múltiplos jobs iniciem exatamente ao mesmo tempo
+      await new Promise(resolve => setTimeout(resolve, job.id ? parseInt(job.id, 36) % 2000 : 1000));
+
       const result = await extractInvoiceSegundaVia({
         jobId: id,
         webhookUrl,
@@ -108,17 +112,15 @@ export const extractionWorker = new Worker<ExtractionJobData, ExtractionJobResul
       }
 
       throw error;
-
-      return {
-        id,
-        status: 'failed',
-        error: error.message || 'Unknown error'
-      };
     }
   },
   {
     connection: defaultQueueConfig.connection,
-    concurrency: 3,
+    concurrency: 5, // Aumentado para 5 conforme solicitado
+    limiter: {
+      max: 5, // Limita a 5 jobs por intervalo
+      duration: 5000, // Intervalo de 5 segundos
+    }
   }
 );
 
@@ -126,6 +128,12 @@ export const extractionWorker = new Worker<ExtractionJobData, ExtractionJobResul
 export async function addExtractionJob(data: Omit<ExtractionJobData, 'id'>): Promise<string> {
   const id = uuidv4();
 
+  // Verificar quantos jobs ativos existem antes de adicionar um novo
+  const activeCount = await extractionQueue.getActiveCount();
+  const waitingCount = await extractionQueue.getWaitingCount();
+  
+  logger.info(`Current queue status: ${activeCount} active jobs, ${waitingCount} waiting jobs`);
+  
   await extractionQueue.add('extract-invoice', {
     id,
     ...data
@@ -135,10 +143,10 @@ export async function addExtractionJob(data: Omit<ExtractionJobData, 'id'>): Pro
     backoff: {
       type: 'exponential',
       delay: 10000
-    }
+    },
+    // Adiciona um pequeno delay para evitar que múltiplos jobs sejam processados simultaneamente
+    delay: Math.floor(Math.random() * 2000) // Delay aleatório de até 2 segundos
   });
-
-  await new Promise((resolve) => setTimeout(resolve, 3000));
 
   return id;
 }
