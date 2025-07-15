@@ -142,7 +142,7 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
                 DISPLAY: process.env.DISPLAY || ':99',
                 DBUS_SESSION_BUS_ADDRESS: process.env.DBUS_SESSION_BUS_ADDRESS || 'unix:path=/var/run/dbus/system_bus_socket'
             } : undefined,
-            timeout: 0,
+            timeout: 1000 * 60 * 2,
         };
 
         logger.info(`Launching browser with config: ${JSON.stringify(puppeteerConfig)}`);
@@ -195,7 +195,8 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
                 await page.setViewport({ width: 1280, height: 800 });
 
                 await page.goto(
-                    "https://www.eneldistribuicao.com.br/ce/AcessoRapidosegundavia.aspx"
+                    "https://www.eneldistribuicao.com.br/ce/AcessoRapidosegundavia.aspx",
+                    { timeout: 1000 * 60 * 2 }
                 );
 
                 // Screenshot após carregar a página inicial
@@ -203,7 +204,7 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
 
                 // Aguardar até que os elementos do formulário estejam carregados
                 logger.info("Aguardando carregamento dos elementos do formulário...");
-                await page.waitForSelector('.form-group', { timeout: 30000 })
+                await page.waitForSelector('.form-group', { timeout: 1000 * 60 * 2 })
                     .catch(async error => {
                         // Screenshot em caso de erro
                         await takeScreenshot(page, sessionId, '02_erro_form_timeout', screenshotPath);
