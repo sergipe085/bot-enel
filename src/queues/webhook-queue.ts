@@ -22,56 +22,60 @@ export const webhookQueue = new Queue<WebhookJobData, WebhookJobResult>(
   defaultQueueConfig
 );
 
-// Processador da fila
-export const webhookWorker = new Worker<WebhookJobData, WebhookJobResult>(
-  QUEUE_NAMES.WEBHOOK,
-  async (job: Job<WebhookJobData>): Promise<WebhookJobResult> => {
-    const { url, payload, headers = {} } = job.data;
+export function setupWebhookWorker() {
 
-    try {
-      logger.info(`Sending webhook to ${url}`);
+  // Processador da fila
+  const webhookWorker = new Worker<WebhookJobData, WebhookJobResult>(
+    QUEUE_NAMES.WEBHOOK,
+    async (job: Job<WebhookJobData>): Promise<WebhookJobResult> => {
+      const { url, payload, headers = {} } = job.data;
 
-      const requestHeaders = {
-        'Content-Type': 'application/json',
-        'User-Agent': 'Enel-Bot-Webhook',
-        ...headers
-      };
+      try {
+        logger.info(`Sending webhook to ${url}`);
 
-      const response = await axios.post(url, payload, {
-        headers: requestHeaders,
-        timeout: 10000
-      });
+        const requestHeaders = {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Enel-Bot-Webhook',
+          ...headers
+        };
 
-      logger.info(`Webhook sent successfully to ${url}, status: ${response.status}`);
+        const response = await axios.post(url, payload, {
+          headers: requestHeaders,
+          timeout: 10000
+        });
 
-      return {
-        success: true,
-        statusCode: response.status,
-        message: 'Webhook delivered successfully'
-      };
-    } catch (error) {
-      logger.error(`Failed to send webhook to ${url}:`, error);
+        logger.info(`Webhook sent successfully to ${url}, status: ${response.status}`);
 
-      const statusCode = error.response?.status;
-      const errorMessage = error.message || 'Unknown error';
+        return {
+          success: true,
+          statusCode: response.status,
+          message: 'Webhook delivered successfully'
+        };
+      } catch (error) {
+        logger.error(`Failed to send webhook to ${url}:`, error);
 
-      return {
-        success: false,
-        statusCode: statusCode || 0,
-        message: `Failed to deliver webhook: ${errorMessage}`
-      };
+        const statusCode = error.response?.status;
+        const errorMessage = error.message || 'Unknown error';
+
+        return {
+          success: false,
+          statusCode: statusCode || 0,
+          message: `Failed to deliver webhook: ${errorMessage}`
+        };
+      }
+    },
+    {
+      connection: defaultQueueConfig.connection,
+      concurrency: 100
     }
-  },
-  {
-    connection: defaultQueueConfig.connection,
-    concurrency: 100
-  }
-);
+  );
 
-webhookWorker.on('completed', (job) => {
-  logger.info(`Webhook job ${job.id} completed`);
-});
+  webhookWorker.on('completed', (job) => {
+    logger.info(`Webhook job ${job.id} completed`);
+  });
 
-webhookWorker.on('failed', (job, error) => {
-  logger.error(`Webhook job ${job?.id} failed:`, error);
-});
+  webhookWorker.on('failed', (job, error) => {
+    logger.error(`Webhook job ${job?.id} failed:`, error);
+  });
+}
+

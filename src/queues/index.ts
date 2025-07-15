@@ -1,5 +1,5 @@
-import { extractionQueue, setupExtractionWorker } from './extraction-queue';
-import { webhookQueue, webhookWorker } from './webhook-queue';
+import { setupExtractionWorker } from './extraction-queue';
+import { setupWebhookWorker } from './webhook-queue';
 import { logger } from '../lib/logger';
 
 
@@ -11,7 +11,7 @@ export async function startAllWorkers() {
     // Garantir que os workers estão ativos
     await Promise.all([
       setupExtractionWorker(),
-      webhookWorker.isRunning() || webhookWorker.run()
+      setupWebhookWorker()
     ]);
 
     logger.info('All queue workers started successfully');
@@ -30,10 +30,6 @@ export async function startAllWorkers() {
 export async function stopAllWorkers() {
   try {
     logger.info('Stopping all queue workers...');
-
-    await Promise.all([
-      webhookWorker.close()
-    ]);
 
     logger.info('All queue workers stopped successfully');
     return true;
