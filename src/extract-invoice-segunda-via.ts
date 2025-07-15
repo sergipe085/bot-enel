@@ -9,8 +9,10 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { logger } from './lib/logger';
 import { captchaServer } from './captcha-server-new';
+import { browserPool } from './lib/browser-pool';
 
-// commit
+// Setup puppeteer with plugins
+pupeteer.use(Stealth());
 
 // Função para tirar screenshots organizadas
 async function takeScreenshot(page: Page, sessionId: string, step: string, screenshotPath: string): Promise<string> {
@@ -145,9 +147,10 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
             timeout: 1000 * 60 * 2,
         };
 
-        logger.info(`Launching browser with config: ${JSON.stringify(puppeteerConfig)}`);
+        logger.info(`Getting browser from pool with config: ${JSON.stringify(puppeteerConfig)}`);
 
-        pupeteer.launch(puppeteerConfig).then(async browser => {
+        // Usar o pool de browsers em vez de lançar diretamente
+        browserPool.getBrowser(puppeteerConfig, jobId).then(async browser => {
             try {
                 const page = await browser.newPage();
 
@@ -758,8 +761,9 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
                 logger.error(`Error during extraction:`, error);
                 reject(error);
             } finally {
-                // await browser.close();
-                logger.info(`Browser closed`);
+                // Liberar o browser de volta para o pool em vez de fechá-lo diretamente
+                await browserPool.releaseBrowser(jobId);
+                logger.info(`Browser released back to pool`);
             }
         }).catch(error => {
             logger.error("Failed to launch browser:", error);
