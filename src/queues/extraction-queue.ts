@@ -32,97 +32,111 @@ export const extractionQueue = new Queue<ExtractionJobData, ExtractionJobResult>
 );
 
 // Processador da fila
-export const extractionWorker = new Worker<ExtractionJobData, ExtractionJobResult>(
-  QUEUE_NAMES.EXTRACTION,
-  async (job: Job<ExtractionJobData>): Promise<ExtractionJobResult> => {
-    const { id, numeroCliente, cpfCnpj, mesReferencia, webhookUrl } = job.data;
+export function setupExtractionWorker() {
+  const extractionWorker = new Worker<ExtractionJobData, ExtractionJobResult>(
+    QUEUE_NAMES.EXTRACTION,
+    async (job: Job<ExtractionJobData>): Promise<ExtractionJobResult> => {
+      const { id, numeroCliente, cpfCnpj, mesReferencia, webhookUrl } = job.data;
 
-    try {
-      logger.info(`Starting extraction job ${id} for client ${numeroCliente}`);
+      try {
+        logger.info(`Starting extraction job ${id} for client ${numeroCliente}`);
 
-      // Notificar início do processo
-      if (webhookUrl) {
-        await webhookQueue.add('job-started', {
-          url: webhookUrl,
-          payload: {
-            id,
-            status: 'started',
-            message: `Starting extraction for client ${numeroCliente}`
-          }
+        // Notificar início do processo
+        if (webhookUrl) {
+          await webhookQueue.add('job-started', {
+            url: webhookUrl,
+            payload: {
+              id,
+              status: 'started',
+              message: `Starting extraction for client ${numeroCliente}`
+            }
+          });
+        }
+
+        await job.updateProgress(20);
+
+        // Adicionamos uma pequena pausa entre jobs para garantir que não sobrecarregue o sistema
+        // Isso ajuda a evitar que múltiplos jobs iniciem exatamente ao mesmo tempo
+        await new Promise(resolve => setTimeout(resolve, job.id ? parseInt(job.id, 36) % 2000 : 1000));
+
+        const result = await extractInvoiceSegundaVia({
+          jobId: id,
+          webhookUrl,
+          numeroCliente,
+          cpfCnpj,
+          mesReferencia
         });
+
+        await job.updateProgress(90);
+
+        if (webhookUrl) {
+          await webhookQueue.add('job-completed', {
+            url: webhookUrl,
+            payload: {
+              id,
+              status: 'completed',
+              pdfs: await Promise.all(result.pdfs.map(async (pdf) => {
+                const primeiros5DigitosCnpj = String(cpfCnpj).replace(/\D/g, '').slice(0, 5);
+                const decryptedContent = await decryptBase64PdfWithQpdf(pdf.base64Content, primeiros5DigitosCnpj);
+                return {
+                  ...pdf,
+                  base64Content: decryptedContent
+                };
+              }))
+            }
+          });
+        }
+
+        logger.info(`Extraction job ${id} completed successfully`);
+
+        return {
+          id,
+          status: 'completed',
+          pdfs: result.pdfs
+        };
+      } catch (error) {
+        logger.error(`Extraction job ${id} failed:`, error);
+
+        // Não precisamos mais liberar o lock aqui, pois o próprio processo de extração
+        // já liberou o lock após usar o código de verificação ou em caso de erro
+
+        // Notificar erro
+        if (webhookUrl) {
+          await webhookQueue.add('job-failed', {
+            url: webhookUrl,
+            payload: {
+              id,
+              status: 'failed',
+              error: error.message || 'Unknown error'
+            }
+          });
+        }
+
+        throw error;
       }
-
-      await job.updateProgress(20);
-
-      // Adicionamos uma pequena pausa entre jobs para garantir que não sobrecarregue o sistema
-      // Isso ajuda a evitar que múltiplos jobs iniciem exatamente ao mesmo tempo
-      await new Promise(resolve => setTimeout(resolve, job.id ? parseInt(job.id, 36) % 2000 : 1000));
-
-      const result = await extractInvoiceSegundaVia({
-        jobId: id,
-        webhookUrl,
-        numeroCliente,
-        cpfCnpj,
-        mesReferencia
-      });
-
-      await job.updateProgress(90);
-
-      if (webhookUrl) {
-        await webhookQueue.add('job-completed', {
-          url: webhookUrl,
-          payload: {
-            id,
-            status: 'completed',
-            pdfs: await Promise.all(result.pdfs.map(async (pdf) => {
-              const primeiros5DigitosCnpj = String(cpfCnpj).replace(/\D/g, '').slice(0, 5);
-              const decryptedContent = await decryptBase64PdfWithQpdf(pdf.base64Content, primeiros5DigitosCnpj);
-              return {
-                ...pdf,
-                base64Content: decryptedContent
-              };
-            }))
-          }
-        });
+    },
+    {
+      connection: defaultQueueConfig.connection,
+      concurrency: 2, // Reduzido para 2 para corresponder ao limite do pool de browsers
+      limiter: {
+        max: 2, // Limita a 2 jobs por intervalo
+        duration: 10000, // Intervalo de 10 segundos
       }
-
-      logger.info(`Extraction job ${id} completed successfully`);
-
-      return {
-        id,
-        status: 'completed',
-        pdfs: result.pdfs
-      };
-    } catch (error) {
-      logger.error(`Extraction job ${id} failed:`, error);
-
-      // Não precisamos mais liberar o lock aqui, pois o próprio processo de extração
-      // já liberou o lock após usar o código de verificação ou em caso de erro
-
-      // Notificar erro
-      if (webhookUrl) {
-        await webhookQueue.add('job-failed', {
-          url: webhookUrl,
-          payload: {
-            id,
-            status: 'failed',
-            error: error.message || 'Unknown error'
-          }
-        });
-      }
-
-      throw error;
     }
-  },
-  {
-    connection: defaultQueueConfig.connection,
-    concurrency: 2, // Reduzido para 2 para corresponder ao limite do pool de browsers
-    limiter: {
-      max: 2, // Limita a 2 jobs por intervalo
-      duration: 10000, // Intervalo de 10 segundos
-    }
-  }
-);
+  );
+
+  extractionWorker.on('completed', (job) => {
+    logger.info(`Job ${job.id} completed successfully`);
+  });
+
+  extractionWorker.on('failed', (job, error) => {
+    logger.error(`Job ${job?.id} failed:`, error);
+  });
+
+  extractionWorker.on('error', (error) => {
+    logger.error('Worker error:', error);
+  });
+}
 
 // Método para adicionar um job de extração
 export async function addExtractionJob(data: Omit<ExtractionJobData, 'id'>): Promise<string> {
@@ -152,14 +166,4 @@ export async function addExtractionJob(data: Omit<ExtractionJobData, 'id'>): Pro
 }
 
 // Configurar eventos
-extractionWorker.on('completed', (job) => {
-  logger.info(`Job ${job.id} completed successfully`);
-});
 
-extractionWorker.on('failed', (job, error) => {
-  logger.error(`Job ${job?.id} failed:`, error);
-});
-
-extractionWorker.on('error', (error) => {
-  logger.error('Worker error:', error);
-});
