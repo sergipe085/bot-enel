@@ -9,10 +9,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { logger } from './lib/logger';
 import { captchaServer } from './captcha-server-new';
-import { browserPool } from './lib/browser-pool';
 
-// Setup puppeteer with plugins
-pupeteer.use(Stealth());
+// commit
 
 // Função para tirar screenshots organizadas
 async function takeScreenshot(page: Page, sessionId: string, step: string, screenshotPath: string): Promise<string> {
@@ -147,10 +145,9 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
             timeout: 1000 * 60 * 2,
         };
 
-        logger.info(`Getting browser from pool with config: ${JSON.stringify(puppeteerConfig)}`);
+        logger.info(`Launching browser with config: ${JSON.stringify(puppeteerConfig)}`);
 
-        // Usar o pool de browsers em vez de lançar diretamente
-        browserPool.getBrowser(puppeteerConfig, jobId).then(async browser => {
+        pupeteer.launch(puppeteerConfig).then(async browser => {
             try {
                 const page = await browser.newPage();
 
@@ -198,8 +195,7 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
                 await page.setViewport({ width: 1280, height: 800 });
 
                 await page.goto(
-                    "https://www.eneldistribuicao.com.br/ce/AcessoRapidosegundavia.aspx",
-                    { timeout: 1000 * 60 * 2 }
+                    "https://www.eneldistribuicao.com.br/ce/AcessoRapidosegundavia.aspx"
                 );
 
                 // Screenshot após carregar a página inicial
@@ -207,7 +203,7 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
 
                 // Aguardar até que os elementos do formulário estejam carregados
                 logger.info("Aguardando carregamento dos elementos do formulário...");
-                await page.waitForSelector('.form-group', { timeout: 1000 * 60 * 2 })
+                await page.waitForSelector('.form-group', { timeout: 30000 })
                     .catch(async error => {
                         // Screenshot em caso de erro
                         await takeScreenshot(page, sessionId, '02_erro_form_timeout', screenshotPath);
@@ -521,11 +517,10 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
 
                 await takeScreenshot(page, sessionId, '21_depois_de_clicar_no_botao_de_submit', screenshotPath);
 
-                await new Promise((resolve) => setTimeout(resolve, 20000));
-
-                await takeScreenshot(page, sessionId, '22_depois_20_segundos', screenshotPath);
+                await new Promise((resolve) => setTimeout(resolve, 15000));
 
                 await page.waitForSelector('#CONTENT_segviarapida_GridViewSegVia tbody tr', { timeout: 60 * 1000 * 2 });
+                await takeScreenshot(page, sessionId, '22_depois_15_segundos', screenshotPath);
 
 
                 // Array para armazenar os caminhos dos PDFs baixados
@@ -762,9 +757,8 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
                 logger.error(`Error during extraction:`, error);
                 reject(error);
             } finally {
-                // Liberar o browser de volta para o pool em vez de fechá-lo diretamente
-                await browserPool.releaseBrowser(jobId);
-                logger.info(`Browser released back to pool`);
+                // await browser.close();
+                logger.info(`Browser closed`);
             }
         }).catch(error => {
             logger.error("Failed to launch browser:", error);
