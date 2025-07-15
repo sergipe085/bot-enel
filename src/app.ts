@@ -55,7 +55,6 @@ app.post("/extract-via-segunda-via", async (req, res) => {
     try {
         const { numeroCliente, cpfCnpj, mesReferencia, webhookUrl } = schema.parse(req.body);
 
-        // Adicionar o job à fila de extração
         const jobId = await addExtractionJob({
             numeroCliente,
             cpfCnpj,
@@ -63,7 +62,6 @@ app.post("/extract-via-segunda-via", async (req, res) => {
             webhookUrl
         });
 
-        // Retornar imediatamente com o ID do job
         res.json({
             success: true,
             jobId,

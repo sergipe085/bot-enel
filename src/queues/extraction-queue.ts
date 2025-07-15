@@ -118,7 +118,7 @@ export const extractionWorker = new Worker<ExtractionJobData, ExtractionJobResul
   },
   {
     connection: defaultQueueConfig.connection,
-    concurrency: 10,
+    concurrency: 3,
   }
 );
 
@@ -137,6 +137,8 @@ export async function addExtractionJob(data: Omit<ExtractionJobData, 'id'>): Pro
       delay: 10000
     }
   });
+
+  await new Promise((resolve) => setTimeout(resolve, 3000));
 
   return id;
 }
