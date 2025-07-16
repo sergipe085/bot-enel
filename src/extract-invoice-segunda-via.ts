@@ -95,7 +95,7 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
     logger.info(`Generated PDF filenames: ${pdfFileNames.join(', ')}`);
 
     // Gerar um ID de sessão único para esta execução (para organizar screenshots)
-    const sessionId = uuidv4();
+    const sessionId = jobId;
     logger.info(`Session ID for screenshots: ${sessionId}`);
 
     // Caminho para salvar screenshots
