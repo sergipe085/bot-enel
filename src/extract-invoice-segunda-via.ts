@@ -458,31 +458,6 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
 
                 await takeScreenshot(page, sessionId, '12_depois_5_segundos', screenshotPath);
 
-                // try {
-                //     await page.waitForSelector('input[value^="co"][value*="@gmail.com"]');
-                // } catch (error) {
-                //     logger.error("Error waiting for email input:", error);
-
-
-                //     if (webhookUrl) {
-                //         await webhookQueue.add('job-error', {
-                //             url: webhookUrl,
-                //             payload: {
-                //                 id: jobId,
-                //                 status: 'email-not-found',
-                //                 message: 'Error waiting for email input',
-                //             }
-                //         });
-                //     }
-
-                //     return;
-                // }
-
-                // Importamos dinamicamente para evitar dependência circular
-                const { checkEmailLockAvailability, acquireEmailLock } = await import('./queues/email-access-queue');
-
-                const { checkPhoneLockAvailability, acquirePhoneLock } = await import('./queues/phone-access-queue');
-
                 // Usar o centralizador de verificação de código para lidar com ambos os métodos (telefone e email)
                 logger.info("Using centralized verification code handler...");
 
@@ -517,10 +492,11 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
 
                 await takeScreenshot(page, sessionId, '21_depois_de_clicar_no_botao_de_submit', screenshotPath);
 
-                await new Promise((resolve) => setTimeout(resolve, 15000));
+                await new Promise((resolve) => setTimeout(resolve, 25000));
+
+                await takeScreenshot(page, sessionId, '22_depois_25_segundos', screenshotPath);
 
                 await page.waitForSelector('#CONTENT_segviarapida_GridViewSegVia tbody tr', { timeout: 60 * 1000 * 2 });
-                await takeScreenshot(page, sessionId, '22_depois_15_segundos', screenshotPath);
 
 
                 // Array para armazenar os caminhos dos PDFs baixados
