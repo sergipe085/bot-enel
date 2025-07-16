@@ -7,23 +7,20 @@ import { PHONE_LOCK_KEY } from './queues/phone-access-queue';
 
 const PORT = process.env.PORT || 3006;
 
-// Iniciar os workers das filas
-startAllWorkers()
-  .then(success => {
-    if (success) {
-      logger.info('Queue workers started successfully');
-    } else {
-      logger.warn('Failed to start some queue workers');
-    }
-  })
-  .catch(error => {
-    logger.error('Error starting queue workers:', error);
+async function main() {
+
+  await redisConnection.flushdb();
+
+  await redisConnection.del(PHONE_CODE_KEY);
+  await redisConnection.del(PHONE_LOCK_KEY);
+
+  // Iniciar os workers das filas
+  await startAllWorkers();
+
+  // Iniciar o servidor HTTP
+  app.listen(PORT, () => {
+    logger.info(`Server running on port ${PORT}`);
   });
+}
 
-redisConnection.del(PHONE_CODE_KEY);
-redisConnection.del(PHONE_LOCK_KEY);
-
-// Iniciar o servidor HTTP
-app.listen(PORT, () => {
-  logger.info(`Server running on port ${PORT}`);
-});
+main();
