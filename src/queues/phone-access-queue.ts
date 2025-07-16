@@ -92,7 +92,7 @@ export async function releasePhoneAccess(requestId: string): Promise<boolean> {
     if (currentLock === requestId) {
       // Este requestId possui o lock, pode liberá-lo
       await redisConnection.del(PHONE_LOCK_KEY);
-      logger.info(`Request ${requestId} released email lock`);
+      logger.info(`Request ${requestId} released phone lock`);
       return true;
     } else if (currentLock) {
       // Outro requestId possui o lock
@@ -104,7 +104,7 @@ export async function releasePhoneAccess(requestId: string): Promise<boolean> {
       return true;
     }
   } catch (error) {
-    logger.error(`Error releasing email lock for ${requestId}:`, error);
+    logger.error(`Error releasing phone lock for ${requestId}:`, error);
     return false;
   }
 }
