@@ -682,6 +682,10 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
                         }
                     }
 
+                    if (downloadedPdfs.length === 0) {
+                        logger.error('No PDFs downloaded for any month');
+                    }
+
                     // Resolver a promise principal com os resultados
                     resolve({
                         barCode: '',
