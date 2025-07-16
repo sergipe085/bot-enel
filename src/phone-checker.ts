@@ -18,7 +18,7 @@ export async function getVerificationCodeFromPhone(): Promise<string | null> {
     const startTime = Date.now();
 
     try {
-        const maxWaitTimeMs = 1000 * 60 * 10; // 10 minutes
+        const maxWaitTimeMs = 1000 * 10; // 10 seconds
 
         while (Date.now() - startTime < maxWaitTimeMs) {
             const code = await redisConnection.get(PHONE_CODE_KEY);
