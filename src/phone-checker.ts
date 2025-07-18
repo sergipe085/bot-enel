@@ -28,6 +28,8 @@ export async function getVerificationCodeFromPhone(): Promise<string | null> {
             })
 
             if (code && code.length > 2) {
+                logger.info('Verification code found in phone: ' + code);
+                logger.info('Deleting phone code key...');
                 await redisConnection.del(PHONE_CODE_KEY);
                 return code;
             }
