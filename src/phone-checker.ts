@@ -28,10 +28,10 @@ export async function getVerificationCodeFromPhone(): Promise<string | null> {
             })
 
             if (code && code.length > 2) {
+                await redisConnection.del(PHONE_CODE_KEY);
                 return code;
             }
 
-            await redisConnection.del(PHONE_CODE_KEY);
 
             // Wait before checking again
             logger.info('No verification code found, waiting before checking again...');
