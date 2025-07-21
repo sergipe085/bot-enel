@@ -115,8 +115,38 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
     return new Promise((resolve, reject) => {
         // Configuração do Puppeteer para funcionar tanto em ambiente local quanto em Docker
         const isDocker = process.env.RUNNING_IN_DOCKER === 'true';
+        // const puppeteerConfig = {
+        //     headless: false, // Usando false para ambos os ambientes para evitar detecção de bot
+        //     args: [
+        //         `--disable-dev-shm-usage`,
+        //         `--disable-gpu`,
+        //         `--no-sandbox`,
+        //         `--disable-setuid-sandbox`,
+        //         `--window-size=1280,1024`,
+        //         `--start-maximized`,
+        //         // Argumentos para tornar o navegador menos detectável como bot
+        //         `--disable-blink-features=AutomationControlled`,
+        //         // Argumentos adicionais para o ambiente X11 no Docker
+        //         isDocker ? `--display=${process.env.DISPLAY || ':99'}` : '',
+        //         isDocker ? '--disable-software-rasterizer' : '',
+        //         isDocker ? '--disable-dev-shm-usage' : '',
+        //         isDocker ? '--disable-extensions' : '',
+        //         isDocker ? '--mute-audio' : '',
+        //     ].filter(Boolean), // Remove argumentos vazios
+        //     executablePath: isDocker
+        //         ? '/usr/bin/chromium'
+        //         : process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+        //     defaultViewport: null, // Desativa o viewport fixo para parecer mais humano
+        //     env: isDocker ? {
+        //         ...process.env,
+        //         DISPLAY: process.env.DISPLAY || ':99',
+        //         DBUS_SESSION_BUS_ADDRESS: process.env.DBUS_SESSION_BUS_ADDRESS || 'unix:path=/var/run/dbus/system_bus_socket'
+        //     } : undefined,
+        //     timeout: 1000 * 60 * 2,
+        // };
+
         const puppeteerConfig = {
-            headless: false, // Usando false para ambos os ambientes para evitar detecção de bot
+            headless: true,
             args: [
                 `--disable-dev-shm-usage`,
                 `--disable-gpu`,
@@ -124,24 +154,17 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
                 `--disable-setuid-sandbox`,
                 `--window-size=1280,1024`,
                 `--start-maximized`,
-                // Argumentos para tornar o navegador menos detectável como bot
                 `--disable-blink-features=AutomationControlled`,
-                // Argumentos adicionais para o ambiente X11 no Docker
-                isDocker ? `--display=${process.env.DISPLAY || ':99'}` : '',
-                isDocker ? '--disable-software-rasterizer' : '',
-                isDocker ? '--disable-dev-shm-usage' : '',
-                isDocker ? '--disable-extensions' : '',
-                isDocker ? '--mute-audio' : '',
-            ].filter(Boolean), // Remove argumentos vazios
-            executablePath: isDocker
-                ? '/usr/bin/chromium'
-                : process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
-            defaultViewport: null, // Desativa o viewport fixo para parecer mais humano
-            env: isDocker ? {
+                `--disable-software-rasterizer`,
+                `--disable-dev-shm-usage`,
+                `--disable-extensions`,
+                `--mute-audio`,
+            ].filter(Boolean),
+            executablePath: '/usr/bin/chromium',
+            defaultViewport: null,
+            env: {
                 ...process.env,
-                DISPLAY: process.env.DISPLAY || ':99',
-                DBUS_SESSION_BUS_ADDRESS: process.env.DBUS_SESSION_BUS_ADDRESS || 'unix:path=/var/run/dbus/system_bus_socket'
-            } : undefined,
+            },
             timeout: 1000 * 60 * 2,
         };
 
