@@ -4,9 +4,10 @@ import { v4 as uuidv4 } from 'uuid';
 // Import phone and email verification methods
 import { checkPhoneLockAvailability, acquirePhoneLock, releasePhoneAccess } from './queues/phone-access-queue';
 import { checkEmailLockAvailability, acquireEmailLock, releaseEmailAccess } from './queues/email-access-queue';
-import { waitForPhoneVerificationCode } from './phone-checker';
+import { PHONE_CODE_KEY, waitForPhoneVerificationCode } from './phone-checker';
 import { waitForEmailVerificationCode } from './email-checker';
 import { ElementHandle, Page } from 'puppeteer';
+import { redisConnection } from './lib/redis';
 
 // Verification method types
 export enum VerificationMethod {
@@ -332,6 +333,8 @@ export async function handleVerificationCodeUI(
         if (!selectedInput) {
             throw new Error(`Selected verification method ${selectedMethod} is not available on the page`);
         }
+
+        await redisConnection.del(PHONE_CODE_KEY);
 
         await selectedInput.click();
 

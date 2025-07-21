@@ -15,8 +15,8 @@ export const PHONE_CODE_KEY = 'enel:phone:lock:code';
 export async function getVerificationCodeFromPhone(): Promise<string | null> {
     logger.info('Checking phone for verification code...');
 
+    // await redisConnection.del(PHONE_CODE_KEY);
     const startTime = Date.now();
-
     try {
         const maxWaitTimeMs = 1000 * 60 * 10; // 10 minutes
 
