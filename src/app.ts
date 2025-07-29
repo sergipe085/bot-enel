@@ -180,6 +180,31 @@ app.post("/set-sms-code", async (req, res) => {
     }
 });
 
+app.post("/decrypt-pdf", async (req: Request, res: Response) => {
+    const schema = z.object({
+        pdfBase64: z.string(),
+        password: z.string()
+    });
+
+    try {
+        const { pdfBase64, password } = schema.parse(req.body);
+
+        // Decrypt the PDF using the utility function
+        const decryptedPdf = await decryptBase64PdfWithQpdf(pdfBase64, password);
+
+        res.json({
+            success: true,
+            decryptedPdf
+        });
+    } catch (error) {
+        console.error('Error decrypting PDF:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Error decrypting PDF'
+        });
+    }
+});
+
 const PORT = 3006;
 
 app.listen(PORT, () => {
