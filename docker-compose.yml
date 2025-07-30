@@ -12,7 +12,7 @@ services:
       - /app/node_modules
       - /app/dist
       - ./screenshots:/app/screenshots
-    command: ["node", "dist/server.js"]
+    command: ["/app/start-xvfb.sh", "node", "dist/server.js"]
     environment:
       - PORT=3006
       - NODE_ENV=development

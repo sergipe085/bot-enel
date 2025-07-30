@@ -146,7 +146,7 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
         // };
 
         const puppeteerConfig = {
-            headless: true,
+            headless: false,
             args: [
                 `--disable-dev-shm-usage`,
                 `--disable-gpu`,
