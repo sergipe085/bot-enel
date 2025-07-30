@@ -6,7 +6,6 @@ import { extractInvoiceSegundaVia } from '../extract-invoice-segunda-via';
 import { webhookQueue } from './webhook-queue';
 import { decryptBase64PdfWithQpdf } from '../utils';
 
-// Tipos
 export type ExtractionJobData = {
   id: string;
   numeroCliente: string;
@@ -25,13 +24,11 @@ export type ExtractionJobResult = {
   error?: string;
 };
 
-// Fila de extração
 export const extractionQueue = new Queue<ExtractionJobData, ExtractionJobResult>(
   QUEUE_NAMES.EXTRACTION,
   defaultQueueConfig
 );
 
-// Processador da fila
 export function setupExtractionWorker() {
   const extractionWorker = new Worker<ExtractionJobData, ExtractionJobResult>(
     QUEUE_NAMES.EXTRACTION,
@@ -41,7 +38,6 @@ export function setupExtractionWorker() {
       try {
         logger.info(`Starting extraction job ${id} for client ${numeroCliente}`);
 
-        // Notificar início do processo
         if (webhookUrl) {
           await webhookQueue.add('job-started', {
             url: webhookUrl,
@@ -55,8 +51,6 @@ export function setupExtractionWorker() {
 
         await job.updateProgress(20);
 
-        // Adicionamos uma pequena pausa entre jobs para garantir que não sobrecarregue o sistema
-        // Isso ajuda a evitar que múltiplos jobs iniciem exatamente ao mesmo tempo
         await new Promise(resolve => setTimeout(resolve, job.id ? parseInt(job.id, 36) % 2000 : 1000));
 
         const result = await extractInvoiceSegundaVia({
@@ -97,10 +91,6 @@ export function setupExtractionWorker() {
       } catch (error) {
         logger.error(`Extraction job ${id} failed:`, error);
 
-        // Não precisamos mais liberar o lock aqui, pois o próprio processo de extração
-        // já liberou o lock após usar o código de verificação ou em caso de erro
-
-        // Notificar erro
         if (webhookUrl) {
           await webhookQueue.add('job-failed', {
             url: webhookUrl,
@@ -138,11 +128,9 @@ export function setupExtractionWorker() {
   });
 }
 
-// Método para adicionar um job de extração
 export async function addExtractionJob(data: Omit<ExtractionJobData, 'id'>): Promise<string> {
   const id = uuidv4();
 
-  // Verificar quantos jobs ativos existem antes de adicionar um novo
   const activeCount = await extractionQueue.getActiveCount();
   const waitingCount = await extractionQueue.getWaitingCount();
 
@@ -164,6 +152,4 @@ export async function addExtractionJob(data: Omit<ExtractionJobData, 'id'>): Pro
 
   return id;
 }
-
-// Configurar eventos
 
