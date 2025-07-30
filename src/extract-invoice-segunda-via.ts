@@ -760,7 +760,7 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
                 logger.error(`Error during extraction:`, error);
                 reject(error);
             } finally {
-                await browser.close();
+                // await browser.close();
                 logger.info(`Browser closed`);
             }
         }).catch(error => {
