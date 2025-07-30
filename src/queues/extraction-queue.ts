@@ -107,9 +107,9 @@ export function setupExtractionWorker() {
     },
     {
       connection: defaultQueueConfig.connection,
-      concurrency: 5, // Reduzido para 2 para corresponder ao limite do pool de browsers
+      concurrency: 3, // Reduzido para 2 para corresponder ao limite do pool de browsers
       limiter: {
-        max: 5, // Limita a 5 jobs por intervalo
+        max: 3, // Limita a 5 jobs por intervalo
         duration: 10000, // Intervalo de 10 segundos
       },
       skipLockRenewal: true,
