@@ -686,7 +686,28 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
                         const pdfPath = downloadedPdfs[i];
                         const mes = mesesReferencia[i];
 
+                        // Skip empty paths (failed downloads)
+                        if (!pdfPath || pdfPath.trim() === '') {
+                            logger.warn(`Skipping empty PDF path for month ${mes}`);
+                            continue;
+                        }
+
                         try {
+                            // Verificar se o arquivo ainda existe antes de tentar lê-lo
+                            if (!fs.existsSync(pdfPath)) {
+                                logger.error(`PDF file not found: ${pdfPath} for month ${mes}`);
+                                continue;
+                            }
+
+                            // Aguardar um pouco mais para garantir que o arquivo foi completamente escrito
+                            await new Promise(r => setTimeout(r, 1000));
+
+                            // Verificar novamente se o arquivo ainda existe
+                            if (!fs.existsSync(pdfPath)) {
+                                logger.error(`PDF file disappeared: ${pdfPath} for month ${mes}`);
+                                continue;
+                            }
+
                             // Ler o arquivo PDF e convertê-lo para base64
                             const pdfBuffer = fs.readFileSync(pdfPath);
                             const base64Content = pdfBuffer.toString('base64');
@@ -699,7 +720,7 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
 
                             // Remover o arquivo após a conversão
                             fs.unlinkSync(pdfPath);
-                            logger.info(`Removed temporary PDF file: ${pdfPath}`);
+                            logger.info(`Successfully processed and removed PDF file: ${pdfPath} for month ${mes}`);
                         } catch (error) {
                             logger.error(`Error processing PDF file ${pdfPath} for month ${mes}:`, error);
                         }
@@ -728,7 +749,28 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
                             const mesIndex = mesesReferencia.findIndex((_, idx) => idx === i);
                             const mes = mesIndex >= 0 ? mesesReferencia[mesIndex] : 'unknown';
 
+                            // Skip empty paths (failed downloads)
+                            if (!pdfPath || pdfPath.trim() === '') {
+                                logger.warn(`Skipping empty PDF path for month ${mes} in error recovery`);
+                                continue;
+                            }
+
                             try {
+                                // Verificar se o arquivo ainda existe antes de tentar lê-lo
+                                if (!fs.existsSync(pdfPath)) {
+                                    logger.error(`PDF file not found in error recovery: ${pdfPath} for month ${mes}`);
+                                    continue;
+                                }
+
+                                // Aguardar um pouco mais para garantir que o arquivo foi completamente escrito
+                                await new Promise(r => setTimeout(r, 5000));
+
+                                // Verificar novamente se o arquivo ainda existe
+                                if (!fs.existsSync(pdfPath)) {
+                                    logger.error(`PDF file disappeared in error recovery: ${pdfPath} for month ${mes}`);
+                                    continue;
+                                }
+
                                 // Ler o arquivo PDF e convertê-lo para base64
                                 const pdfBuffer = fs.readFileSync(pdfPath);
                                 const base64Content = pdfBuffer.toString('base64');
@@ -741,7 +783,7 @@ export async function extractInvoiceSegundaVia({ jobId, webhookUrl, numeroClient
 
                                 // Remover o arquivo após a conversão
                                 fs.unlinkSync(pdfPath);
-                                logger.info(`Removed temporary PDF file: ${pdfPath}`);
+                                logger.info(`Successfully processed and removed PDF file in error recovery: ${pdfPath} for month ${mes}`);
                             } catch (error) {
                                 logger.error(`Error processing PDF file ${pdfPath} for month ${mes}:`, error);
                             }
